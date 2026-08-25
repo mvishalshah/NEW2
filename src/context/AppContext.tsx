@@ -8,6 +8,15 @@ import {
   UserFinancialSummary,
   DebtEdge
 } from '../types.js';
+import {
+  initialUsers,
+  initialGroups,
+  initialExpenses,
+  initialSettlements,
+  initialNotifications,
+  calculateDebtsClient,
+  calculateFinancialSummaryClient
+} from '../data/mockData.js';
 
 interface Toast {
   id: string;
@@ -76,17 +85,34 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Helper for safe localStorage loading
+function getStored<T>(key: string, defaultVal: T): T {
+  try {
+    const item = localStorage.getItem(`splitmate_${key}`);
+    return item ? JSON.parse(item) : defaultVal;
+  } catch (e) {
+    return defaultVal;
+  }
+}
+
+function setStored<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(`splitmate_${key}`, JSON.stringify(value));
+  } catch (e) {
+    // Ignore storage quota errors
+  }
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [groups, setGroups] = useState<Array<Group & { role: string; myBalance: number }>>([]);
-  const [publicGroups, setPublicGroups] = useState<Group[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [financialSummary, setFinancialSummary] = useState<UserFinancialSummary | null>(null);
-  const [myDebts, setMyDebts] = useState<DebtEdge[]>([]);
+  const [currentUser, setCurrentUser] = useState<User>(() => getStored('current_user', initialUsers[0]));
+  const [allUsers, setAllUsers] = useState<User[]>(() => getStored('all_users', initialUsers));
+  const [groupsState, setGroupsState] = useState<Group[]>(() => getStored('groups', initialGroups));
+  const [expenses, setExpenses] = useState<Expense[]>(() => getStored('expenses', initialExpenses));
+  const [settlements, setSettlements] = useState<Settlement[]>(() => getStored('settlements', initialSettlements));
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => getStored('notifications', initialNotifications));
+  
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeView, setActiveViewState] = useState<AppContextType['activeView']>('dashboard');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState<boolean>(false);
@@ -96,7 +122,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isReminderModalOpen, setIsReminderModalOpen] = useState<boolean>(false);
   const [activeReminderData, setActiveReminderData] = useState<any | null>(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('splitmate_dark_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Calculate dynamic debts & summary
+  const myDebts = calculateDebtsClient(expenses, settlements).filter(
+    (d) => d.fromUserId === currentUser.id || d.toUserId === currentUser.id
+  );
+  const financialSummary = calculateFinancialSummaryClient(currentUser.id, expenses, settlements);
+
+  // Compute enriched groups with user role and individual balance
+  const groups = groupsState.map((grp) => {
+    const groupDebts = calculateDebtsClient(expenses, settlements, grp.id);
+    let myBalance = 0;
+    groupDebts.forEach((d) => {
+      if (d.toUserId === currentUser.id) myBalance += d.amount;
+      if (d.fromUserId === currentUser.id) myBalance -= d.amount;
+    });
+    return {
+      ...grp,
+      role: grp.ownerId === currentUser.id ? 'owner' : 'member',
+      myBalance
+    };
+  });
+
+  const publicGroups = groupsState.filter((g) => g.privacy === 'public');
+
+  // Persistence helpers
+  useEffect(() => {
+    setStored('current_user', currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
+    setStored('all_users', allUsers);
+  }, [allUsers]);
+
+  useEffect(() => {
+    setStored('groups', groupsState);
+  }, [groupsState]);
+
+  useEffect(() => {
+    setStored('expenses', expenses);
+  }, [expenses]);
+
+  useEffect(() => {
+    setStored('settlements', settlements);
+  }, [settlements]);
+
+  useEffect(() => {
+    setStored('notifications', notifications);
+  }, [notifications]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('splitmate_dark_mode', String(darkMode));
+    } catch {}
+  }, [darkMode]);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -118,29 +204,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  // Sync with backend if available
   const refreshAllData = useCallback(async () => {
     try {
-      const [meRes, usersRes, dashRes, discoverRes, expRes, notifRes] = await Promise.all([
-        fetch('/api/auth/me').then((r) => r.json()),
-        fetch('/api/users').then((r) => r.json()),
-        fetch('/api/dashboard/summary').then((r) => r.json()),
-        fetch('/api/groups/discover').then((r) => r.json()),
-        fetch('/api/expenses').then((r) => r.json()),
-        fetch('/api/notifications').then((r) => r.json())
-      ]);
+      const res = await fetch('/api/auth/me');
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        const meRes = await res.json();
+        if (meRes.user) setCurrentUser(meRes.user);
 
-      if (meRes.user) setCurrentUser(meRes.user);
-      if (usersRes.users) setAllUsers(usersRes.users);
-      if (dashRes.groups) setGroups(dashRes.groups);
-      if (dashRes.summary) setFinancialSummary(dashRes.summary);
-      if (dashRes.debts) setMyDebts(dashRes.debts);
-      if (discoverRes.groups) setPublicGroups(discoverRes.groups);
-      if (expRes.expenses) setExpenses(expRes.expenses);
-      if (notifRes.notifications) setNotifications(notifRes.notifications);
-    } catch (err) {
-      console.error('Failed to load application data:', err);
-    } finally {
-      setIsLoading(false);
+        const [usersRes, dashRes, expRes, notifRes] = await Promise.all([
+          fetch('/api/users').then((r) => r.json()).catch(() => null),
+          fetch('/api/dashboard/summary').then((r) => r.json()).catch(() => null),
+          fetch('/api/expenses').then((r) => r.json()).catch(() => null),
+          fetch('/api/notifications').then((r) => r.json()).catch(() => null)
+        ]);
+
+        if (usersRes?.users) setAllUsers(usersRes.users);
+        if (dashRes?.groups) setGroupsState(dashRes.groups);
+        if (expRes?.expenses) setExpenses(expRes.expenses);
+        if (notifRes?.notifications) setNotifications(notifRes.notifications);
+      }
+    } catch {
+      // Backend not running (e.g. GitHub Pages static export) - keep client state
     }
   }, []);
 
@@ -149,52 +235,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [refreshAllData]);
 
   const switchUser = async (userId: string) => {
-    setIsLoading(true);
+    const foundUser = allUsers.find((u) => u.id === userId);
+    if (foundUser) {
+      setCurrentUser(foundUser);
+      showToast(`Switched account to ${foundUser.name} (@${foundUser.username})`, 'info');
+    }
+
     try {
       const res = await fetch('/api/auth/switch-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
       });
-      const data = await res.json();
-      if (data.success && data.user) {
-        setCurrentUser(data.user);
-        await refreshAllData();
-        showToast(`Switched account to ${data.user.name} (@${data.user.username})`, 'info');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) setCurrentUser(data.user);
       }
-    } catch (err) {
-      showToast('Failed to switch user', 'error');
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // Offline fallback already updated state
     }
   };
 
   const googleLogin = async (email?: string, name?: string) => {
-    setIsLoading(true);
+    const targetEmail = email || `student_${Math.floor(100 + Math.random() * 900)}@college.edu`;
+    const targetName = name || 'Student Member';
+
+    let user = allUsers.find((u) => u.email.toLowerCase() === targetEmail.toLowerCase());
+    if (!user) {
+      user = {
+        id: `user_${Date.now()}`,
+        googleId: `google_${Date.now()}`,
+        name: targetName,
+        username: targetEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+        email: targetEmail,
+        avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
+        institution: 'Delhi Technological University',
+        course: 'B.Tech Engineering',
+        year: '3rd Year',
+        city: 'New Delhi',
+        upiId: `${targetEmail.split('@')[0]}@okaxis`,
+        bio: 'College student & bill splitting enthusiast',
+        createdAt: new Date().toISOString()
+      };
+      setAllUsers((prev) => [...prev, user!]);
+    }
+
+    setCurrentUser(user);
+    showToast(`Welcome back, ${user.name}! 👋`, 'success');
+    setIsOnboardingOpen(true);
+
     try {
-      const targetEmail = email || `student_${Math.floor(100 + Math.random() * 900)}@college.edu`;
-      const targetName = name || 'Student Member';
-      const res = await fetch('/api/auth/google-login', {
+      await fetch('/api/auth/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
           name: targetName,
-          googleId: `google_${Date.now()}`,
-          avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`
+          googleId: user.googleId,
+          avatarUrl: user.avatarUrl
         })
       });
-      const data = await res.json();
-      if (data.success && data.user) {
-        setCurrentUser(data.user);
-        await refreshAllData();
-        showToast(`Welcome back, ${data.user.name}! 👋`, 'success');
-        setIsOnboardingOpen(true); // Open onboarding so they can confirm institution/UPI
-      }
-    } catch (err) {
-      showToast('Google login failed', 'error');
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // Offline fallback succeeded
     }
   };
 
@@ -203,165 +305,180 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProfile = async (data: Partial<User>): Promise<boolean> => {
+    const updated = { ...currentUser, ...data };
+    setCurrentUser(updated);
+    setAllUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
+    showToast('Profile updated successfully!', 'success');
+
     try {
-      const res = await fetch('/api/users/profile', {
+      await fetch('/api/users/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      const json = await res.json();
-      if (json.success && json.user) {
-        setCurrentUser(json.user);
-        showToast('Profile updated successfully!', 'success');
-        return true;
-      }
-      return false;
-    } catch (err) {
-      showToast('Error updating profile', 'error');
-      return false;
-    }
+    } catch {}
+    return true;
   };
 
   const createGroup = async (data: any): Promise<Group | null> => {
+    const newGroup: Group = {
+      id: `grp_${Date.now()}`,
+      name: data.name,
+      description: data.description || '',
+      category: data.category || 'college',
+      institution: data.institution || currentUser.institution,
+      city: data.city || currentUser.city,
+      privacy: data.privacy || 'public',
+      imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=400&auto=format&fit=crop&q=80',
+      ownerId: currentUser.id,
+      groupCode: Math.random().toString(36).substring(2, 10).toUpperCase(),
+      createdAt: new Date().toISOString(),
+      memberCount: 1
+    };
+
+    setGroupsState((prev) => [newGroup, ...prev]);
+    showToast(`Group "${newGroup.name}" created with code: ${newGroup.groupCode}! 🎉`, 'success');
+
     try {
-      const res = await fetch('/api/groups', {
+      await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      const json = await res.json();
-      if (json.success && json.group) {
-        showToast(`Group "${json.group.name}" created with code: ${json.group.groupCode}! 🎉`, 'success');
-        await refreshAllData();
-        return json.group;
-      }
-      showToast(json.error || 'Failed to create group', 'error');
-      return null;
-    } catch (err) {
-      showToast('Failed to create group', 'error');
-      return null;
-    }
+    } catch {}
+
+    return newGroup;
   };
 
   const joinGroupWithCode = async (code: string): Promise<boolean> => {
+    const cleaned = code.trim().toUpperCase();
+    const found = groupsState.find((g) => g.groupCode?.toUpperCase() === cleaned);
+    if (found) {
+      showToast(`Joined ${found.name} successfully! 🚀`, 'success');
+      setActiveView('group-detail', found.id);
+      return true;
+    }
+
     try {
       const res = await fetch('/api/groups/join-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code: cleaned })
       });
-      const json = await res.json();
-      if (json.success) {
-        showToast(json.message, 'success');
-        await refreshAllData();
-        if (json.group) {
-          setActiveView('group-detail', json.group.id);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message, 'success');
+          if (json.group) {
+            setGroupsState((prev) => (prev.some((g) => g.id === json.group.id) ? prev : [json.group, ...prev]));
+            setActiveView('group-detail', json.group.id);
+          }
+          return true;
         }
-        return true;
       }
-      showToast(json.message || json.error || 'Failed to join group', 'error');
-      return false;
-    } catch (err) {
-      showToast('Failed to join group', 'error');
-      return false;
-    }
+    } catch {}
+
+    showToast('Invalid group join code. Please verify code.', 'error');
+    return false;
   };
 
   const recordSettlement = async (data: any): Promise<boolean> => {
+    const newSettlement: Settlement = {
+      id: `set_${Date.now()}`,
+      groupId: data.groupId,
+      fromUserId: data.fromUserId || currentUser.id,
+      toUserId: data.toUserId,
+      amount: Number(data.amount),
+      status: 'completed',
+      paymentMethod: data.paymentMethod || 'upi',
+      note: data.note,
+      createdAt: new Date().toISOString(),
+      paidAt: new Date().toISOString()
+    };
+
+    setSettlements((prev) => [newSettlement, ...prev]);
+    showToast(`Payment of ₹${data.amount} recorded! 💸`, 'success');
+
     try {
-      const res = await fetch('/api/settlements', {
+      await fetch('/api/settlements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`Payment of ₹${data.amount} recorded! 💸`, 'success');
-        await refreshAllData();
-        return true;
-      }
-      showToast(json.error || 'Failed to record settlement', 'error');
-      return false;
-    } catch (err) {
-      showToast('Failed to record settlement', 'error');
-      return false;
-    }
+    } catch {}
+
+    return true;
   };
 
   const confirmSettlement = async (settlementId: string): Promise<boolean> => {
+    setSettlements((prev) =>
+      prev.map((s) => (s.id === settlementId ? { ...s, status: 'completed', paidAt: new Date().toISOString() } : s))
+    );
+    showToast('Settlement confirmed and marked complete! ✅', 'success');
+
     try {
-      const res = await fetch(`/api/settlements/${settlementId}/confirm`, {
+      await fetch(`/api/settlements/${settlementId}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      const json = await res.json();
-      if (json.success) {
-        showToast('Settlement confirmed and marked complete! ✅', 'success');
-        await refreshAllData();
-        return true;
-      }
-      showToast(json.error || 'Failed to confirm settlement', 'error');
-      return false;
-    } catch (err) {
-      showToast('Failed to confirm settlement', 'error');
-      return false;
-    }
+    } catch {}
+
+    return true;
   };
 
   const sendPaymentReminder = async (data: any): Promise<{ success: boolean; message: string }> => {
+    const receiver = allUsers.find((u) => u.id === data.receiverId);
+    const msg = `Reminder for ₹${data.amount} sent to ${receiver?.name || 'student'}.`;
+    
+    // Add local notification
+    const newNotif: AppNotification = {
+      id: `notif_${Date.now()}`,
+      userId: data.receiverId,
+      type: 'payment_reminder',
+      title: `Payment Reminder from ${currentUser.name}`,
+      message: `${currentUser.name} sent a friendly reminder for ₹${data.amount} ${data.note ? `("${data.note}")` : ''}`,
+      read: false,
+      data: { amount: data.amount, fromUserId: currentUser.id, groupId: data.groupId },
+      createdAt: new Date().toISOString()
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+    showToast(msg, 'success');
+
     try {
-      const res = await fetch('/api/reminders/send', {
+      await fetch('/api/reminders/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      const json = await res.json();
-      if (json.success) {
-        showToast(json.message, 'success');
-        return { success: true, message: json.message };
-      }
-      showToast(json.message || json.error || 'Could not send reminder', 'error');
-      return { success: false, message: json.message || json.error };
-    } catch (err) {
-      showToast('Failed to send reminder', 'error');
-      return { success: false, message: 'Server error sending reminder' };
-    }
+    } catch {}
+
+    return { success: true, message: msg };
   };
 
   const markNotificationRead = async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     try {
       await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    } catch (err) {
-      console.error(err);
-    }
+    } catch {}
   };
 
   const markAllNotificationsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    showToast('All notifications marked as read', 'info');
     try {
       await fetch('/api/notifications/read-all', { method: 'PATCH' });
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      showToast('All notifications marked as read', 'info');
-    } catch (err) {
-      console.error(err);
-    }
+    } catch {}
   };
 
   const deleteExpense = async (id: string): Promise<boolean> => {
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    showToast('Expense deleted successfully', 'info');
+
     try {
-      const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.success) {
-        showToast('Expense deleted successfully', 'info');
-        await refreshAllData();
-        return true;
-      }
-      showToast(json.error || 'Failed to delete expense', 'error');
-      return false;
-    } catch (err) {
-      showToast('Failed to delete expense', 'error');
-      return false;
-    }
+      await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+    } catch {}
+
+    return true;
   };
 
   const openAddExpenseModal = (mode: 'manual' | 'ocr' = 'manual', groupId?: string) => {
