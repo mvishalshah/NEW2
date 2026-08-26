@@ -29,14 +29,16 @@ export const PersonalDashboard: React.FC = () => {
     openAddExpenseModal,
     openUPIPayment,
     openReminderModal,
+    openAuthModal,
     setActiveView
   } = useApp();
 
   const [timeframeTab, setTimeframeTab] = useState<'today' | 'week' | 'month'>('month');
 
-  // Filter pending debts
-  const debtsIOwe = myDebts.filter((d) => d.fromUserId === currentUser?.id);
-  const debtsOwedToMe = myDebts.filter((d) => d.toUserId === currentUser?.id);
+  // Filter pending debts (if guest, use sample user 'u1' for interactive demo preview)
+  const effectiveUserId = currentUser?.id || 'u1';
+  const debtsIOwe = myDebts.filter((d) => d.fromUserId === effectiveUserId);
+  const debtsOwedToMe = myDebts.filter((d) => d.toUserId === effectiveUserId);
 
   const categoryColors: Record<string, { bg: string; text: string; bar: string }> = {
     Food: { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-700 dark:text-amber-300', bar: 'bg-amber-500' },
@@ -57,21 +59,61 @@ export const PersonalDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
+      {/* Demo Notice Banner for First-Time Viewers */}
+      {!currentUser && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm shadow-amber-500/30">
+              ⚡
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Interactive Demo Mode
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-[10px] font-extrabold">
+                  No Account Connected
+                </span>
+              </div>
+              <p className="text-xs text-amber-900/80 dark:text-amber-200/80 mt-0.5">
+                You are viewing sample student bill data. Sign in or create an account to manage your personal college expenses & groups.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => openAuthModal('signin')}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => openAuthModal('signup')}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/30"
+            >
+              Sign Up Free
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Banner with Student Info */}
       <div className="relative overflow-hidden rounded-2xl bg-indigo-600 dark:bg-indigo-950 p-6 sm:p-8 text-white shadow-xl shadow-indigo-950/10 border border-indigo-500/30">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/15 backdrop-blur-md text-xs font-semibold text-indigo-100">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{currentUser?.institution || 'College Student Campus'}</span>
+              <span>{currentUser ? (currentUser.institution || 'College Campus') : 'College Campus Demo'}</span>
               <span>•</span>
-              <span>{currentUser?.course}</span>
+              <span>{currentUser ? (currentUser.course || 'Student') : 'AI OCR & Bill Splitting'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Hey, {currentUser?.name?.split(' ')[0]} 👋
+              {currentUser ? `Hey, ${currentUser.name?.split(' ')[0]} 👋` : 'SplitMate for Students 🎓'}
             </h1>
             <p className="text-sm text-indigo-100/90 max-w-xl">
-              Track student bills, scan canteens & hostel receipts with AI OCR, and settle via UPI instantly.
+              {currentUser
+                ? 'Track student bills, scan canteens & hostel receipts with AI OCR, and settle via UPI instantly.'
+                : 'Track student bills, scan canteen & mess receipts with Gemini OCR, and settle via UPI seamlessly.'}
             </p>
           </div>
 

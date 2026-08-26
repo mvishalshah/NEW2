@@ -15,10 +15,12 @@ import { UPIPaymentModal } from './components/UPIPaymentModal.js';
 import { PaymentReminderModal } from './components/PaymentReminderModal.js';
 import { OnboardingModal } from './components/OnboardingModal.js';
 import { AuthModal } from './components/AuthModal.js';
+import { AuthGateView } from './components/AuthGateView.js';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
   const {
+    currentUser,
     activeView,
     selectedGroupId,
     toasts,
@@ -30,6 +32,11 @@ const MainLayout: React.FC = () => {
   } = useApp();
 
   const renderActiveView = () => {
+    // If not signed in and trying to access any non-home view, show AuthGateView
+    if (!currentUser && activeView !== 'dashboard' && activeView !== 'auth') {
+      return <AuthGateView feature={activeView} />;
+    }
+
     switch (activeView) {
       case 'dashboard':
         return <PersonalDashboard />;

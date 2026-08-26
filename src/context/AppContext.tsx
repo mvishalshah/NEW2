@@ -76,6 +76,7 @@ interface AppContextType {
   darkMode: boolean;
 
   // Actions
+  loginUser: (user: User) => void;
   setActiveView: (view: AppContextType['activeView'], groupId?: string) => void;
   openAddExpenseModal: (mode?: 'manual' | 'ocr', groupId?: string) => void;
   closeAddExpenseModal: () => void;
@@ -128,7 +129,7 @@ function setStored<T>(key: string, value: T): void {
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(() => getStored('current_user', initialUsers[0]));
+  const [currentUser, setCurrentUser] = useState<User | null>(() => getStored<User | null>('current_user', null));
   const [allUsers, setAllUsers] = useState<User[]>(() => getStored('all_users', initialUsers));
   const [groupsState, setGroupsState] = useState<Group[]>(() => getStored('groups', initialGroups));
   const [expenses, setExpenses] = useState<Expense[]>(() => getStored('expenses', initialExpenses));
@@ -157,23 +158,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  // Calculate dynamic debts & summary
-  const myDebts = calculateDebtsClient(expenses, settlements).filter(
-    (d) => d.fromUserId === currentUser?.id || d.toUserId === currentUser?.id
-  );
-  const financialSummary = calculateFinancialSummaryClient(currentUser?.id || 'u1', expenses, settlements);
+  // Calculate dynamic debts & summary: when signed in, calculate for currentUser; in demo preview (no account), calculate for initial demo user 'u1'
+  const myDebts = currentUser
+    ? calculateDebtsClient(expenses, settlements).filter(
+        (d) => d.fromUserId === currentUser.id || d.toUserId === currentUser.id
+      )
+    : calculateDebtsClient(expenses, settlements).filter(
+        (d) => d.fromUserId === 'u1' || d.toUserId === 'u1'
+      );
+
+  const financialSummary = currentUser
+    ? calculateFinancialSummaryClient(currentUser.id, expenses, settlements)
+    : calculateFinancialSummaryClient('u1', expenses, settlements);
 
   // Compute enriched groups with user role and individual balance
   const groups = groupsState.map((grp) => {
     const groupDebts = calculateDebtsClient(expenses, settlements, grp.id);
     let myBalance = 0;
-    groupDebts.forEach((d) => {
-      if (d.toUserId === currentUser?.id) myBalance += d.amount;
-      if (d.fromUserId === currentUser?.id) myBalance -= d.amount;
-    });
+    if (currentUser) {
+      groupDebts.forEach((d) => {
+        if (d.toUserId === currentUser.id) myBalance += d.amount;
+        if (d.fromUserId === currentUser.id) myBalance -= d.amount;
+      });
+    }
     return {
       ...grp,
-      role: grp.ownerId === currentUser?.id ? 'owner' : 'member',
+      role: currentUser ? (grp.ownerId === currentUser.id ? 'owner' : 'member') : 'member',
       myBalance
     };
   });
@@ -182,7 +192,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Persistence helpers
   useEffect(() => {
-    if (currentUser) setStored('current_user', currentUser);
+    if (currentUser) {
+      setStored('current_user', currentUser);
+    } else {
+      try {
+        localStorage.removeItem('splitmate_current_user');
+      } catch {}
+    }
   }, [currentUser]);
 
   useEffect(() => {
@@ -229,6 +245,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  const loginUser = useCallback((user: User) => {
+    setCurrentUser(user);
+    setStored('current_user', user);
+    setAllUsers((prev) => (prev.some((u) => u.id === user.id) ? prev.map((u) => (u.id === user.id ? user : u)) : [...prev, user]));
+    setActiveViewState('dashboard');
+    showToast(`Welcome, ${user.name}! 👋`, 'success');
+  }, [showToast]);
 
   const setActiveView = useCallback((view: AppContextType['activeView'], groupId?: string) => {
     setActiveViewState(view);
@@ -397,9 +421,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = async () => {
     if (isSupabaseConfigured()) {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch {}
     }
-    showToast('Logged out of session', 'info');
+    try {
+      localStorage.removeItem('splitmate_current_user');
+    } catch {}
+    setCurrentUser(null);
+    setActiveViewState('dashboard');
+    showToast('Logged out. You are now viewing the demo preview.', 'info');
   };
 
   const updateProfile = async (data: Partial<User>): Promise<boolean> => {
@@ -648,6 +679,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const openAddExpenseModal = (mode: 'manual' | 'ocr' = 'manual', groupId?: string) => {
+    if (!currentUser) {
+      openAuthModal('signin');
+      showToast('Please sign in or sign up to add expenses & scan receipts', 'info');
+      return;
+    }
     setInitialAddExpenseMode(mode);
     if (groupId) setSelectedGroupId(groupId);
     setIsAddExpenseModalOpen(true);
@@ -658,6 +694,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const openUPIPayment = (data: { recipientUser: User; amount: number; groupId?: string; note?: string }) => {
+    if (!currentUser) {
+      openAuthModal('signin');
+      showToast('Please sign in or sign up to settle payments via UPI', 'info');
+      return;
+    }
     setActiveSettlementData(data);
     setIsUPIModalOpen(true);
   };
@@ -668,6 +709,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const openReminderModal = (data: { receiverUser: User; amount: number; groupId?: string }) => {
+    if (!currentUser) {
+      openAuthModal('signin');
+      showToast('Please sign in or sign up to send payment reminders', 'info');
+      return;
+    }
     setActiveReminderData(data);
     setIsReminderModalOpen(true);
   };
@@ -694,7 +740,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsOnboardingOpen(false);
   };
 
-  const unreadNotificationCount = notifications.filter((n) => !n.read).length;
+  const unreadNotificationCount = currentUser
+    ? notifications.filter((n) => !n.read && (n.userId === currentUser.id || n.userId === 'all')).length
+    : 0;
 
   return (
     <AppContext.Provider
@@ -723,6 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeReminderData,
         isOnboardingOpen,
         darkMode,
+        loginUser,
         setActiveView,
         openAddExpenseModal,
         closeAddExpenseModal,
