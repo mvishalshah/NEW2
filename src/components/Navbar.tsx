@@ -92,9 +92,6 @@ export const Navbar: React.FC = () => {
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 leading-none">
                   <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white">SmartSplitMate</span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
-                    Everyone
-                  </span>
                 </div>
                 <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 hidden sm:block leading-normal mt-0.5">
                   Smart Split & OCR Parser

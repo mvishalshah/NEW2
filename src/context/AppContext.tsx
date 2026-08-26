@@ -159,9 +159,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [allUsers, setAllUsers] = useState<User[]>(() => getStored<User[]>('all_users', initialUsers));
   const [groupsState, setGroupsState] = useState<Group[]>(() => getStored<Group[]>('groups', initialGroups));
-  const [expenses, setExpenses] = useState<Expense[]>(() => getStored<Expense[]>('expenses', initialExpenses));
-  const [settlements, setSettlements] = useState<Settlement[]>(() => getStored<Settlement[]>('settlements', initialSettlements));
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => getStored<AppNotification[]>('notifications', initialNotifications));
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    const stored = getStored<Expense[]>('expenses', []);
+    return Array.isArray(stored)
+      ? stored.filter((e) => e && e.id && !['exp_1', 'exp_2', 'exp_3', 'exp_4', 'exp_5', 'exp_6'].includes(e.id))
+      : [];
+  });
+  const [settlements, setSettlements] = useState<Settlement[]>(() => {
+    const stored = getStored<Settlement[]>('settlements', []);
+    return Array.isArray(stored)
+      ? stored.filter((s) => s && s.id && !['set_1', 'set_pending_1'].includes(s.id))
+      : [];
+  });
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const stored = getStored<AppNotification[]>('notifications', []);
+    return Array.isArray(stored)
+      ? stored.filter((n) => n && n.id && !['notif_1', 'notif_2', 'notif_3'].includes(n.id))
+      : [];
+  });
   
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -620,8 +635,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (sbUsers.length > 0) setAllUsers(sbUsers);
         if (sbGroups.length > 0) setGroupsState(sbGroups);
-        if (sbExpenses.length > 0) setExpenses(sbExpenses);
-        if (sbSettlements.length > 0) setSettlements(sbSettlements);
+        setExpenses(sbExpenses);
+        setSettlements(sbSettlements);
         if (currentUser?.id) {
           const sbNotifs = await fetchNotificationsFromSupabase(currentUser.id);
           if (sbNotifs.length > 0) setNotifications(sbNotifs);

@@ -472,52 +472,103 @@ export const PersonalDashboard: React.FC = () => {
               </button>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-              {expenses.slice(0, 5).map((exp) => {
-                const userParticipant = exp.participants.find((p) => p.userId === currentUser?.id);
-                const isPayer = exp.paidBy === currentUser?.id;
-                const catStyle = categoryColors[exp.category] || categoryColors.Other;
+            {(() => {
+              const safeList = Array.isArray(expenses) ? expenses : [];
+              const userFiltered = safeList.filter((exp) => {
+                if (!exp) return false;
+                if (!currentUser) return true;
+                const isPayer = exp.paidBy === currentUser.id;
+                const isCreator = exp.createdBy === currentUser.id;
+                const isParticipant = exp.participants?.some((p) => p.userId === currentUser.id);
+                const isInMyGroup = exp.groupId && groups.some((g) => g.id === exp.groupId);
+                return isPayer || isCreator || isParticipant || isInMyGroup;
+              });
 
+              const sortedRecent = [...userFiltered].sort((a, b) => {
+                const timeA = new Date(a.date || a.createdAt || 0).getTime();
+                const timeB = new Date(b.date || b.createdAt || 0).getTime();
+                return timeB - timeA;
+              });
+
+              if (sortedRecent.length === 0) {
                 return (
-                  <div key={exp.id} className="py-3.5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-10 h-10 rounded-xl ${catStyle.bg} ${catStyle.text} flex items-center justify-center font-bold text-xs shrink-0`}>
-                        {exp.category[0]}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                          {exp.title}
-                        </h4>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          <span>{exp.groupName || 'Personal'}</span>
-                          <span>•</span>
-                          <span>{new Date(exp.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                          <span>•</span>
-                          <span className="capitalize">{exp.splitMethod.replace('_', ' ')} split</span>
-                        </div>
-                      </div>
+                  <div className="py-8 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center mb-3">
+                      <Receipt className="w-6 h-6" />
                     </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                        ₹{exp.amount.toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-[11px] font-medium mt-0.5">
-                        {isPayer ? (
-                          <span className="text-indigo-600 dark:text-indigo-400 font-semibold">You paid full</span>
-                        ) : userParticipant ? (
-                          <span className="text-red-500 font-semibold">
-                            Your share: ₹{userParticipant.shareAmount}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">Not involved</span>
-                        )}
-                      </div>
+                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">No recent expenses yet</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                      Add a personal expense or scan a receipt with AI OCR to start tracking real-time spending.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <button
+                        onClick={() => openAddExpenseModal('ocr')}
+                        className="px-3.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>Scan Receipt</span>
+                      </button>
+                      <button
+                        onClick={() => openAddExpenseModal('manual')}
+                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Expense</span>
+                      </button>
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              }
+
+              return (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  {sortedRecent.slice(0, 5).map((exp) => {
+                    const userParticipant = exp.participants?.find((p) => p.userId === currentUser?.id);
+                    const isPayer = exp.paidBy === currentUser?.id;
+                    const catStyle = categoryColors[exp.category] || categoryColors.Other;
+
+                    return (
+                      <div key={exp.id} className="py-3.5 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-xl ${catStyle.bg} ${catStyle.text} flex items-center justify-center font-bold text-xs shrink-0`}>
+                            {exp.category?.[0] || '₹'}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                              {exp.title}
+                            </h4>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              <span>{exp.groupName || (exp.groupId ? 'Group' : 'Personal')}</span>
+                              <span>•</span>
+                              <span>{new Date(exp.date || exp.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                              <span>•</span>
+                              <span className="capitalize">{(exp.splitMethod || 'equal').replace('_', ' ')} split</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                            ₹{Number(exp.amount || 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[11px] font-medium mt-0.5">
+                            {isPayer ? (
+                              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">You paid full</span>
+                            ) : userParticipant ? (
+                              <span className="text-red-500 font-semibold">
+                                Your share: ₹{userParticipant.shareAmount}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Not involved</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
