@@ -70,6 +70,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         });
 
         if (error) {
+          const isRateLimit =
+            error.message?.toLowerCase().includes('rate limit') ||
+            (error as any)?.status === 429;
+
+          if (isRateLimit) {
+            // Attempt automatic sign-in with the same credentials in case the user was already created
+            try {
+              const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password: password.trim()
+              });
+
+              if (!signInErr && signInData?.session) {
+                showToast('Signed in successfully! Welcome to SplitMate 🎓', 'success');
+                window.history.pushState({}, '', '/');
+                setActiveView('dashboard');
+                onClose();
+                return;
+              }
+            } catch {}
+
+            setErrorMessage(
+              'Supabase email confirmation rate limit reached (3-4 emails/hr on free tier). If you already registered or confirmed, switch to Sign In or use Google / Student Demo Logins below.'
+            );
+            return;
+          }
+
           setErrorMessage(error.message);
           return;
         }

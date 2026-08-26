@@ -130,48 +130,40 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `You are an expert Optical Character Recognition (OCR) and financial document parser for SplitMate, an Indian student expense & bill-splitting application.
+    const promptText = `You are an expert Optical Character Recognition (OCR) and financial document vision parser for SplitMate, an Indian student expense & bill-splitting application.
 
-Your task is to analyze the provided image with maximum precision. The image could be:
-- A physical paper receipt, thermal printout, restaurant KOT, grocery bill, stationery slip, or taxi invoice.
-- A UPI payment confirmation screenshot (e.g., Google Pay, PhonePe, Paytm, BHIM, Cred, Amazon Pay, Navi).
-- A digital order invoice (e.g., Swiggy, Zomato, Blinkit, Zepto, Instamart, Amazon, Flipkart).
-- A handwritten canteen/mess chit or room expense calculation list.
+Your task is to analyze the provided image with MAXIMUM VISION ACCURACY and document understanding. The image can be:
+1. **Restaurant / Cafe / Canteen Bills**: Thermal receipts, printed KOTs, printed table invoices with Food items, Quantity, Rate, Amount, Subtotal, CGST, SGST, Service Charges, Discounts, Round off, Grand Total.
+2. **Grocery & Supermarket Receipts**: Store receipts (e.g., Hostel mart, D-Mart, Reliance, local Kirana) with packaged goods, dairy, snacks, toiletries.
+3. **Stationery, Xerox & Book Depot Receipts**: Printing charges, spiral binding, xerox copies, practical record books, pens, notebooks.
+4. **UPI Payment Confirmation Screenshots**: Google Pay (GPay), PhonePe, Paytm, BHIM UPI, Cred, Navi, Amazon Pay, showing "Paid to [Merchant/Person]", "₹ Amount", "UPI Transaction ID / UTR", "Date & Time".
+5. **Digital App Delivery Invoices**: Swiggy, Zomato, Blinkit, Zepto, Instamart, Amazon, Flipkart order summaries.
+6. **Handwritten Mess / Canteen Chits**: Hand-written meal chits, room tally slips, or mess coupon lists.
 
-Extraction Guidelines:
-1. **Merchant / Payee Name**:
-   - Extract the business or individual's name (e.g., "Madras Cafe", "Hostel 3 Mess", "Paid to Rahul Verma", "Blinkit Commerce").
-   - If not explicitly written, infer the best title from the header or transaction note.
+CRITICAL VISION & EXTRACTION INSTRUCTIONS:
+- **Image Orientation & Rotation**: The image may be captured at 90°, 180°, or 270° angle. Detect the orientation and parse all text accurately regardless of rotation.
+- **Merchant / Store / Payee Name**: Extract the exact business or person name from header or transaction title (e.g., "Madras Cafe", "Hostel 3 Mess", "Aarav Sharma", "Blinkit Commerce").
+- **Date**: Extract in YYYY-MM-DD format. If only DD/MM is printed, assume year 2026. If date is not visible, use current date.
+- **Receipt / Transaction ID**: Extract Bill No, Invoice No, Token No, or UPI Reference / UTR ID.
+- **Line Items Extraction (Crucial for Bill Splitting)**:
+  - Extract EVERY distinct item listed.
+  - 'name': Clear, readable full item name (e.g. "Paneer Tikka Sandwich", "Engineering Drawing Spiral Notes", "Amul Taaza Milk 1L"). Expand common abbreviations if obvious (e.g., "Sandw" -> "Sandwich", "Cff" -> "Coffee").
+  - 'quantity': The number of units (default 1 if not specified).
+  - 'unitPrice': Price per unit in INR (₹).
+  - 'totalPrice': Row total (quantity * unitPrice).
+  - 'confidence': "high" if clear and legible, "medium" if slightly faded/blurry, "verify" if uncertain.
+  - For UPI screenshots (single payment): Create 1 line item with name: the transaction note, merchant or "UPI Payment Transfer", quantity: 1, totalPrice: full paid amount.
+- **Mathematical Calibration**:
+  - 'subtotal': Sum of all line item totals before taxes and discounts.
+  - 'tax': Total GST / VAT / CGST + SGST amount.
+  - 'discount': Total promo / coupon / discount deducted.
+  - 'serviceCharge': Packaging, delivery, platform, or service fee.
+  - 'roundOff': Any fractional rounding difference.
+  - 'total': Grand total amount in INR (₹). Ensure it reflects the bottom-line payable amount.
+- **Category Classification**: 'Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'.
+- **Verbatim Raw Text Transcript**: Include complete readable text in 'rawText'.
 
-2. **Date & Receipt/Transaction ID**:
-   - Date format: YYYY-MM-DD (e.g., "2026-02-26"). If year is omitted on the bill, use the current year 2026.
-   - Receipt Number: Extract Bill No, Invoice No, Token No, or UPI UTR / Transaction Reference ID.
-
-3. **Itemized Line Items (Crucial for Bill Splitting)**:
-   - For every single line item visible on the receipt:
-     - 'name': Exact readable name of the item / dish / service (e.g. "Paneer Butter Masala", "A4 Spiral Notebook", "Maggi 12-Pack").
-     - 'quantity': The count (e.g., 1, 2, 3, 4). If not stated, assume 1.
-     - 'unitPrice': The price per unit in INR (₹).
-     - 'totalPrice': The line row total (quantity * unitPrice).
-     - 'confidence': "high" if clearly printed and legible, "medium" if slightly blurry/calculated, "verify" if uncertain.
-   - For UPI Payment Screenshots (where individual items are not listed):
-     - Create a single item with name: the payment note, merchant description, or "UPI Payment Transfer", quantity 1, and totalPrice equal to the transaction amount.
-
-4. **Financial Breakdown & Calibration**:
-   - 'subtotal': Total sum of all line items before tax and discount.
-   - 'tax': Total GST / VAT / CGST + SGST or service tax amount.
-   - 'discount': Total coupon / promo / loyalty discount amount (as a positive number).
-   - 'serviceCharge': Any delivery fee, packaging fee, container charge, or platform fee.
-   - 'roundOff': Any fractional rounding off (+/- amount).
-   - 'total': The grand total / paid amount in INR (₹). Must match the bottom-line total printed or transferred.
-
-5. **Category**:
-   - Classify into one of: 'Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'.
-
-6. **Raw Text Transcript**:
-   - Provide a line-by-line verbatim transcription of all legible text from top to bottom in 'rawText'.
-
-Return purely valid JSON matching the exact schema provided.`;
+Return purely valid JSON matching the exact schema.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.7-flash',
@@ -186,34 +178,34 @@ Return purely valid JSON matching the exact schema provided.`;
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            merchantName: { type: Type.STRING },
-            date: { type: Type.STRING },
-            receiptNumber: { type: Type.STRING },
-            category: { type: Type.STRING },
-            currency: { type: Type.STRING },
+            merchantName: { type: Type.STRING, description: 'The merchant, cafe, store, or recipient name' },
+            date: { type: Type.STRING, description: 'Date of receipt in YYYY-MM-DD format' },
+            receiptNumber: { type: Type.STRING, description: 'Bill number, invoice number, or UPI UTR reference' },
+            category: { type: Type.STRING, description: 'Expense category e.g. Food, Hostel, Education, Shopping, Transport' },
+            currency: { type: Type.STRING, description: 'Currency code e.g. INR' },
             items: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  name: { type: Type.STRING },
-                  quantity: { type: Type.NUMBER },
-                  unitPrice: { type: Type.NUMBER },
-                  totalPrice: { type: Type.NUMBER },
-                  confidence: { type: Type.STRING }
+                  name: { type: Type.STRING, description: 'Line item description' },
+                  quantity: { type: Type.NUMBER, description: 'Quantity count' },
+                  unitPrice: { type: Type.NUMBER, description: 'Unit price in INR' },
+                  totalPrice: { type: Type.NUMBER, description: 'Line total price' },
+                  confidence: { type: Type.STRING, description: 'Confidence level: high, medium, or verify' }
                 },
                 required: ['name', 'quantity', 'unitPrice', 'totalPrice', 'confidence']
               }
             },
-            subtotal: { type: Type.NUMBER },
-            discount: { type: Type.NUMBER },
-            tax: { type: Type.NUMBER },
-            serviceCharge: { type: Type.NUMBER },
-            roundOff: { type: Type.NUMBER },
-            total: { type: Type.NUMBER },
-            confidenceOverall: { type: Type.STRING },
-            rawText: { type: Type.STRING },
-            upiRef: { type: Type.STRING }
+            subtotal: { type: Type.NUMBER, description: 'Sum of items before tax/discounts' },
+            discount: { type: Type.NUMBER, description: 'Total discount amount' },
+            tax: { type: Type.NUMBER, description: 'Total tax/GST amount' },
+            serviceCharge: { type: Type.NUMBER, description: 'Packaging/service fee' },
+            roundOff: { type: Type.NUMBER, description: 'Round off adjustment' },
+            total: { type: Type.NUMBER, description: 'Grand total payable' },
+            confidenceOverall: { type: Type.STRING, description: 'Overall confidence: high, medium, or low' },
+            rawText: { type: Type.STRING, description: 'Verbatim transcript of legible text' },
+            upiRef: { type: Type.STRING, description: 'UPI UTR / Reference ID if present' }
           },
           required: ['merchantName', 'items', 'total']
         }
