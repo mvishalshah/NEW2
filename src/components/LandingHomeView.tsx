@@ -113,13 +113,13 @@ export const LandingHomeView: React.FC = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-xs font-bold text-indigo-200 border border-white/15 shadow-sm">
             <GraduationCap className="w-4 h-4 text-indigo-300" />
-            <span>Built for College Campuses, Hostels & Flatmates</span>
+            <span>Smart Expense Sharing for Everyone & Every Group</span>
             <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white">
-            Split Student Expenses & Scan Receipts with{' '}
+            Split Expenses with Everyone & Scan Receipts with{' '}
             <span className="bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
               AI OCR
             </span>
@@ -127,7 +127,7 @@ export const LandingHomeView: React.FC = () => {
 
           {/* Subtitle Description */}
           <p className="text-sm sm:text-base text-indigo-100/85 max-w-2xl mx-auto leading-relaxed">
-            Stop arguing over hostel mess bills, cafe dinners, and xerox runs. Split bills with 
+            Stop arguing over dinner bills, grocery trips, rent, and outings. Split bills with 
             camera OCR parsing, eliminate circular debts with smart simplification, and settle with 
             mutual honesty agreements during money exchanges.
           </p>
@@ -228,7 +228,7 @@ export const LandingHomeView: React.FC = () => {
               <span>Interactive Live Examples</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Test SplitMate in Action Before Signing In
+              Test SmartSplitMate in Action Before Signing In
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               Explore how AI OCR scanning, debt calculations, and mutual honesty settlements work right on this home page.
@@ -254,7 +254,7 @@ export const LandingHomeView: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              ⚖️ Roommate Split
+              ⚖️ Expense Split
             </button>
             <button
               onClick={() => setActiveDemoTab('honesty')}
@@ -274,7 +274,7 @@ export const LandingHomeView: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              👥 Campus Groups
+              👥 Group Expenses
             </button>
           </div>
         </div>
@@ -286,7 +286,7 @@ export const LandingHomeView: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Select a Sample Student Receipt to Parse:
+                  Select a Sample Receipt to Parse:
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -743,7 +743,7 @@ export const LandingHomeView: React.FC = () => {
             Max 2-Account Fast Jumping
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            Connect up to 2 active student accounts on a single browser session. Jump between roommates 
+            Connect up to 2 active accounts on a single browser session. Jump between members 
             in one click to verify splits and confirm settlements instantly.
           </p>
         </div>
@@ -766,10 +766,10 @@ export const LandingHomeView: React.FC = () => {
       <section className="p-8 sm:p-12 rounded-3xl bg-indigo-600 dark:bg-indigo-950 text-white text-center space-y-6 shadow-xl border border-indigo-500/30">
         <div className="space-y-2 max-w-xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Ready to Take the Stress Out of College Expenses?
+            Ready to Take the Stress Out of Shared Expenses?
           </h2>
           <p className="text-xs sm:text-sm text-indigo-100/90">
-            Join students across campuses tracking flatmate rent, midnight snacks, and semester trips with SplitMate.
+            Join groups, roommates, colleagues, and friends tracking rent, meals, and trips with SmartSplitMate.
           </p>
         </div>
 
@@ -784,7 +784,7 @@ export const LandingHomeView: React.FC = () => {
             onClick={() => openAuthModal('signup')}
             className="px-6 py-3 rounded-xl bg-indigo-700/80 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm border border-white/20 transition-all hover:scale-105 active:scale-95"
           >
-            Create Free Student Account
+            Create Free Account
           </button>
         </div>
       </section>

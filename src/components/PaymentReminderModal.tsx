@@ -35,7 +35,7 @@ export const PaymentReminderModal: React.FC = () => {
     try {
       const customMessage =
         note.trim() ||
-        `Hey ${receiverUser.name?.split(' ')[0]}, friendly reminder to complete our ₹${amount} money exchange and honesty confirmation on SplitMate! 😊`;
+        `Hey ${receiverUser.name?.split(' ')[0]}, friendly reminder to complete our ₹${amount} money exchange and honesty confirmation on SmartSplitMate! 😊`;
 
       const result = await sendPaymentReminder({
         receiverId: receiverUser.id,

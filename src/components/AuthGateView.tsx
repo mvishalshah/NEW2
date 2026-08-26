@@ -89,7 +89,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ feature = 'this feat
             Sign In to Access {featureInfo.title}
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            {featureInfo.description} You are currently viewing SplitMate in <strong className="text-indigo-600 dark:text-indigo-400">Demo Preview Mode</strong>.
+            {featureInfo.description} You are currently viewing SmartSplitMate in <strong className="text-indigo-600 dark:text-indigo-400">Demo Preview Mode</strong>.
           </p>
         </div>
 

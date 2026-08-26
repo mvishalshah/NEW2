@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { User, Group, Expense, Settlement, AppNotification } from '../types.js';
+import { User, Group, Expense, Settlement, AppNotification, GroupMember } from '../types.js';
 
 // Retrieve Supabase environment variables from Vite, with fallback to default credentials
 const env = (import.meta as any).env || {};
 const supabaseUrl = env.VITE_SUPABASE_URL || 'https://hkojccndwikyhvztllhm.supabase.co';
-const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_rzTXkXMjxjlbKfH1iCPEXA_EBCIb-b2';
+const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_MPKKuKMBcqiB3mj0S9Y7rQ_wjCMZg9b';
 
 
 export const isSupabaseConfigured = (): boolean => {
@@ -177,6 +177,39 @@ export async function upsertProfileToSupabase(user: User): Promise<boolean> {
   }
 }
 
+export async function fetchAllUsersFromSupabase(): Promise<User[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((d: any) => ({
+      id: d.id,
+      googleId: d.google_id || '',
+      name: d.name || '',
+      username: d.username || '',
+      email: d.email || '',
+      avatarUrl: d.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+      institution: d.institution || '',
+      course: d.course || '',
+      year: d.year || d.year_of_study || '',
+      yearOfStudy: d.year_of_study || d.year || '',
+      city: d.city || '',
+      address: d.address || '',
+      phone: d.phone || '',
+      upiId: d.upi_id || '',
+      bio: d.bio || '',
+      honestyScore: d.honesty_score || 98,
+      createdAt: d.created_at || new Date().toISOString()
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGroupsFromSupabase(): Promise<Group[]> {
   if (!isSupabaseConfigured()) return [];
   try {
@@ -208,7 +241,7 @@ export async function fetchGroupsFromSupabase(): Promise<Group[]> {
 export async function insertGroupToSupabase(group: Group): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const { error } = await supabase.from('groups').insert({
+    const { error } = await supabase.from('groups').upsert({
       id: group.id,
       name: group.name,
       description: group.description,
@@ -219,27 +252,154 @@ export async function insertGroupToSupabase(group: Group): Promise<boolean> {
       privacy: group.privacy,
       image_url: group.imageUrl,
       owner_id: group.ownerId,
-      member_count: group.memberCount,
+      member_count: group.memberCount || 1,
       created_at: group.createdAt
     });
+
+    if (!error && group.ownerId) {
+      await insertGroupMemberToSupabase({
+        groupId: group.id,
+        userId: group.ownerId,
+        role: 'owner',
+        status: 'active'
+      });
+    }
+
     return !error;
   } catch {
     return false;
   }
 }
 
-export async function fetchExpensesFromSupabase(): Promise<Expense[]> {
+export async function fetchGroupMembersFromSupabase(groupId: string): Promise<GroupMember[]> {
   if (!isSupabaseConfigured()) return [];
   try {
     const { data, error } = await supabase
+      .from('group_members')
+      .select('*')
+      .eq('group_id', groupId);
+
+    if (error || !data) return [];
+    return data.map((m: any) => ({
+      id: m.id || `${m.group_id}_${m.user_id}`,
+      groupId: m.group_id,
+      userId: m.user_id,
+      role: m.role || 'member',
+      status: m.status || 'active',
+      joinedAt: m.joined_at || m.created_at || new Date().toISOString()
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function insertGroupMemberToSupabase(member: {
+  id?: string;
+  groupId: string;
+  userId: string;
+  role?: 'owner' | 'admin' | 'member';
+  status?: 'active' | 'pending';
+}): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const memberId = member.id || `gm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const { error } = await supabase.from('group_members').upsert({
+      id: memberId,
+      group_id: member.groupId,
+      user_id: member.userId,
+      role: member.role || 'member',
+      status: member.status || 'active',
+      joined_at: new Date().toISOString()
+    });
+
+    try {
+      const { count } = await supabase
+        .from('group_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', member.groupId);
+
+      if (count && count > 0) {
+        await supabase
+          .from('groups')
+          .update({ member_count: count })
+          .eq('id', member.groupId);
+      }
+    } catch {}
+
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function joinGroupByCodeInSupabase(
+  groupCode: string,
+  user: User
+): Promise<{ success: boolean; message: string; group?: Group }> {
+  if (!isSupabaseConfigured()) return { success: false, message: 'Supabase not configured' };
+  try {
+    const cleaned = groupCode.trim().toUpperCase();
+    const { data: groupData, error: groupErr } = await supabase
+      .from('groups')
+      .select('*')
+      .ilike('group_code', cleaned)
+      .maybeSingle();
+
+    if (groupErr || !groupData) {
+      return { success: false, message: 'Invalid group join code. Group not found.' };
+    }
+
+    const group: Group = {
+      id: groupData.id,
+      name: groupData.name,
+      description: groupData.description || '',
+      groupCode: groupData.group_code,
+      category: groupData.category || 'college',
+      institution: groupData.institution || '',
+      city: groupData.city || '',
+      privacy: groupData.privacy || 'public',
+      imageUrl: groupData.image_url,
+      ownerId: groupData.owner_id,
+      createdAt: groupData.created_at,
+      memberCount: (groupData.member_count || 1) + 1
+    };
+
+    await insertGroupMemberToSupabase({
+      groupId: group.id,
+      userId: user.id,
+      role: 'member',
+      status: 'active'
+    });
+
+    return {
+      success: true,
+      message: `Joined "${group.name}" successfully! 🎉`,
+      group
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Failed to join group in Supabase' };
+  }
+}
+
+export async function fetchExpensesFromSupabase(userId?: string, groupId?: string): Promise<Expense[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    let query = supabase
       .from('expenses')
       .select('*')
       .order('created_at', { ascending: false });
 
+    if (groupId) {
+      query = query.eq('group_id', groupId);
+    }
+
+    const { data, error } = await query;
+
     if (error || !data) return [];
     return data.map((e: any) => ({
       id: e.id,
-      groupId: e.group_id,
+      groupId: e.group_id || undefined,
+      groupName: e.group_name || undefined,
       title: e.title,
       description: e.description,
       amount: Number(e.amount),
@@ -258,6 +418,7 @@ export async function fetchExpensesFromSupabase(): Promise<Expense[]> {
     return [];
   }
 }
+
 
 export async function insertExpenseToSupabase(expense: Expense): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;

@@ -1026,7 +1026,7 @@ class DatabaseStore {
       payerAgreed: data.payerAgreed ?? true,
       receiverAgreed: data.receiverAgreed ?? false,
       completedAt: isCompleted ? new Date().toISOString() : undefined,
-      note: data.note || 'Settled via SplitMate Mutual Honesty Agreement',
+      note: data.note || 'Settled via SmartSplitMate Mutual Honesty Agreement',
       createdAt: new Date().toISOString(),
       paidAt: isCompleted ? new Date().toISOString() : undefined,
       fromUser: this.getUser(data.fromUserId),

@@ -91,7 +91,7 @@ export const PersonalDashboard: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-amber-900/80 dark:text-amber-200/80 mt-0.5">
-                You are viewing sample student bill data. Sign in or create an account to manage your personal college expenses & groups.
+                You are viewing sample shared bill data. Sign in or create an account to manage your personal expenses & groups.
               </p>
             </div>
           </div>
@@ -112,23 +112,23 @@ export const PersonalDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Welcome Banner with Student Info */}
+      {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-indigo-600 dark:bg-indigo-950 p-6 sm:p-8 text-white shadow-xl shadow-indigo-950/10 border border-indigo-500/30">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/15 backdrop-blur-md text-xs font-semibold text-indigo-100">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{currentUser ? (currentUser.institution || 'College Campus') : 'College Campus Demo'}</span>
+              <span>{currentUser ? (currentUser.institution || 'Shared Expenses') : 'SmartSplitMate Demo'}</span>
               <span>•</span>
-              <span>{currentUser ? (currentUser.course || 'Student') : 'AI OCR & Bill Splitting'}</span>
+              <span>{currentUser ? (currentUser.course || 'Everyone') : 'AI OCR & Bill Splitting'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              {currentUser ? `Hey, ${currentUser.name?.split(' ')[0]} 👋` : 'SplitMate for Students 🎓'}
+              {currentUser ? `Hey, ${currentUser.name?.split(' ')[0]} 👋` : 'SmartSplitMate for Everyone ✨'}
             </h1>
             <p className="text-sm text-indigo-100/90 max-w-xl">
               {currentUser
-                ? 'Track student bills, scan canteens & hostel receipts with AI OCR, and settle via money exchange with mutual honesty agreement.'
-                : 'Track student bills, scan canteen & mess receipts with Gemini OCR, and settle through honesty-verified money exchanges.'}
+                ? 'Track bills, scan receipts with AI OCR, and settle via money exchange with mutual honesty agreement.'
+                : 'Track shared bills, scan receipts with Gemini OCR, and settle through honesty-verified money exchanges.'}
             </p>
           </div>
 
@@ -593,11 +593,11 @@ export const PersonalDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Student Budget Tips & Insights */}
+          {/* Budget Tips & Insights */}
           <div className="bg-indigo-950 rounded-2xl p-5 text-white shadow-md border border-indigo-900 relative overflow-hidden">
             <div className="flex items-center gap-2 mb-2 text-indigo-300">
               <Sparkles className="w-4 h-4" />
-              <span className="text-xs font-bold tracking-wider uppercase">Smart Student Insights</span>
+              <span className="text-xs font-bold tracking-wider uppercase">Smart Insights</span>
             </div>
             <p className="text-xs text-indigo-100 leading-relaxed">
               💡 <span className="font-semibold text-white">Domino's Pizza & Canteen</span> was your top expense this week. Settle group dues via money exchange and confirm honesty to keep balances accurate!

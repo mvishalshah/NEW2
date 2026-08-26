@@ -91,9 +91,9 @@ export const Navbar: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white">SplitMate</span>
+                  <span className="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white">SmartSplitMate</span>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
-                    Student
+                    Everyone
                   </span>
                 </div>
                 <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 hidden sm:block leading-normal mt-0.5">
@@ -308,7 +308,7 @@ export const Navbar: React.FC = () => {
                       <button
                         id="nav-add-second-account-btn"
                         onClick={() => openAuthModal('signin')}
-                        title="Add 2nd Student Account (Max 2)"
+                        title="Add 2nd Account (Max 2)"
                         className="flex items-center gap-1 h-8 px-2 rounded-xl text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -322,7 +322,7 @@ export const Navbar: React.FC = () => {
                     <button
                       id="user-profile-menu-btn"
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                      aria-label="Open student profile and switcher"
+                      aria-label="Open profile and account switcher"
                       title="Profile & Dual Account Manager"
                       className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all border shadow-xs active:scale-95 shrink-0 ${
                         isUserMenuOpen || activeView === 'profile'

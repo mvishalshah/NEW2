@@ -692,7 +692,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-indigo-600" />
               <span className="text-xs font-bold text-slate-900 dark:text-white">
-                Or Test Instantly with Sample Student Bills
+                Or Test Instantly with Sample Bills
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

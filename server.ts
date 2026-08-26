@@ -19,7 +19,7 @@ async function startServer() {
 
   // Health Check
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', name: 'SplitMate API', time: new Date().toISOString() });
+    res.json({ status: 'ok', name: 'SmartSplitMate API', time: new Date().toISOString() });
   });
 
   // Auth: Current User
@@ -348,7 +348,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`SplitMate Server running on http://0.0.0.0:${PORT}`);
+    console.log(`SmartSplitMate Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

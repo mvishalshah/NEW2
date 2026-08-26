@@ -73,7 +73,7 @@ export const AuthView: React.FC = () => {
               });
 
               if (!signInErr && signInData?.session) {
-                showToast('Signed in successfully! Welcome to SplitMate 🎓', 'success');
+                showToast('Signed in successfully! Welcome to SmartSplitMate 👋', 'success');
                 window.history.pushState({}, '', '/');
                 setActiveView('dashboard');
                 return;
@@ -81,7 +81,7 @@ export const AuthView: React.FC = () => {
             } catch {}
 
             setErrorMessage(
-              'Supabase email confirmation rate limit reached (3-4 emails/hr on free tier). If you already registered or confirmed, switch to Sign In or use Google / Student Demo Logins below.'
+              'Supabase email confirmation rate limit reached (3-4 emails/hr on free tier). If you already registered or confirmed, switch to Sign In or use Google / Demo Logins below.'
             );
             return;
           }
@@ -99,7 +99,7 @@ export const AuthView: React.FC = () => {
         }
 
         // Only redirect when a real session exists after login
-        showToast('Sign up successful! Welcome to SplitMate 🎓', 'success');
+        showToast('Sign up successful! Welcome to SmartSplitMate 🎉', 'success');
         window.history.pushState({}, '', '/');
         setActiveView('dashboard');
       } else {
@@ -146,11 +146,11 @@ export const AuthView: React.FC = () => {
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
-            Split Bills with Campus Peers in Seconds.
+            Split Bills with Everyone in Seconds.
           </h1>
 
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            SplitMate gives students AI-powered receipt scanning, mutual honesty money exchange verification, and real-time campus group bookkeeping.
+            SmartSplitMate gives everyone AI-powered receipt scanning, mutual honesty money exchange verification, and real-time group bookkeeping.
           </p>
 
           <div className="space-y-3 pt-2">
@@ -177,7 +177,7 @@ export const AuthView: React.FC = () => {
                 <Users className="w-4 h-4" />
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                Real-time debt simplification minimizing total transactions among roommates
+                Real-time debt simplification minimizing total transactions among group members
               </p>
             </div>
           </div>
@@ -192,11 +192,11 @@ export const AuthView: React.FC = () => {
                 <GraduationCap className="w-6 h-6" />
               </div>
               <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                {mode === 'signin' ? 'Sign In to Your Account' : 'Create a Student Account'}
+                {mode === 'signin' ? 'Sign In to Your Account' : 'Create an Account'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {mode === 'signin'
-                  ? 'Enter your credentials to access your student dashboard'
+                  ? 'Enter your credentials to access your dashboard'
                   : 'Get started with instant expense splitting and group management'}
               </p>
             </div>
@@ -308,7 +308,7 @@ export const AuthView: React.FC = () => {
                   <input
                     type="email"
                     required
-                    placeholder="student@college.edu"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"

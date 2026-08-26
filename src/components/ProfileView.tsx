@@ -142,10 +142,10 @@ export const ProfileView: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-indigo-600" />
-            <span>Student Profile & Identity</span>
+            <span>Profile & Account Identity</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Your verified student identity, university details, hostel address, and bill-split settings
+            Your verified identity, organization / university details, address, and bill-split settings
           </p>
         </div>
 
@@ -182,10 +182,10 @@ export const ProfileView: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                Complete your student details
+                Complete your profile details
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Add your current university, study year, and hostel address to easily discover and join campus groups.
+                Add your organization / university, role, and address to easily discover and join groups.
               </p>
             </div>
           </div>
@@ -291,7 +291,7 @@ export const ProfileView: React.FC = () => {
             <div className="relative group">
               <img
                 src={currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200'}
-                alt={currentUser?.name || 'Student Avatar'}
+                alt={currentUser?.name || 'User Avatar'}
                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover ring-4 ring-indigo-500/40 shadow-xl bg-slate-800"
               />
               <button
@@ -315,10 +315,10 @@ export const ProfileView: React.FC = () => {
             <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-[11px] font-bold border border-indigo-500/30">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Verified Student Account</span>
+                <span>Verified Account</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                {currentUser?.name || <span className="text-slate-400 italic">Student</span>}
+                {currentUser?.name || <span className="text-slate-400 italic">Member</span>}
               </h2>
               <p className="text-xs text-slate-300 font-mono">
                 @{currentUser?.username || 'username'}
@@ -463,10 +463,10 @@ export const ProfileView: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-indigo-600" />
-                <span>Edit Student Profile & Details</span>
+                <span>Edit Profile & Details</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Update your university name, study year, hostel address, contact number and UPI handle
+                Update your organization / university name, role, address, contact number and UPI handle
               </p>
             </div>
             <button
@@ -648,7 +648,7 @@ export const ProfileView: React.FC = () => {
               </label>
               <textarea
                 rows={2}
-                placeholder="Share a short bio or student note with your roommates and peers..."
+                placeholder="Share a short bio or note with your group members and peers..."
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -669,7 +669,7 @@ export const ProfileView: React.FC = () => {
               className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-1.5 transition-all"
             >
               <Check className="w-4 h-4" />
-              <span>Save Student Profile</span>
+              <span>Save Profile</span>
             </button>
           </div>
         </form>

@@ -83,7 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               });
 
               if (!signInErr && signInData?.session) {
-                showToast('Signed in successfully! Welcome to SplitMate 🎓', 'success');
+                showToast('Signed in successfully! Welcome to SmartSplitMate 👋', 'success');
                 window.history.pushState({}, '', '/');
                 setActiveView('dashboard');
                 onClose();
@@ -92,7 +92,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             } catch {}
 
             setErrorMessage(
-              'Supabase email confirmation rate limit reached (3-4 emails/hr on free tier). If you already registered or confirmed, switch to Sign In or use Google / Student Demo Logins below.'
+              'Supabase email confirmation rate limit reached (3-4 emails/hr on free tier). If you already registered or confirmed, switch to Sign In or use Google / Demo Logins below.'
             );
             return;
           }
@@ -110,7 +110,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
 
         // Only redirect when a real session exists after login
-        showToast('Sign up successful! Welcome to SplitMate 🎓', 'success');
+        showToast('Sign up successful! Welcome to SmartSplitMate 🎉', 'success');
         window.history.pushState({}, '', '/');
         setActiveView('dashboard');
         onClose();
@@ -166,12 +166,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <GraduationCap className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            {mode === 'signin' ? 'Welcome Back to SplitMate' : 'Create Student Account'}
+            {mode === 'signin' ? 'Welcome Back to SmartSplitMate' : 'Create an Account'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {mode === 'signin'
-              ? 'Sign in to access your student group balances & OCR receipts'
-              : 'Join peers to split canteen, rent & project bills with zero hassle'}
+              ? 'Sign in to access your shared group balances & OCR receipts'
+              : 'Join to split dining, rent, groceries & trip bills with zero hassle'}
           </p>
         </div>
 
@@ -282,7 +282,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <input
                 type="email"
                 required
-                placeholder="student@college.edu"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"

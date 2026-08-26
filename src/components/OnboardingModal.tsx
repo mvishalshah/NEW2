@@ -35,7 +35,7 @@ export const OnboardingModal: React.FC = () => {
     });
 
     closeOnboarding();
-    showToast('Setup complete! Welcome to SplitMate 🎓', 'success');
+    showToast('Setup complete! Welcome to SmartSplitMate 🎉', 'success');
   };
 
   return (
@@ -46,10 +46,10 @@ export const OnboardingModal: React.FC = () => {
             <GraduationCap className="w-7 h-7" />
           </div>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-            Welcome to SplitMate! 🎓
+            Welcome to SmartSplitMate! ✨
           </h3>
           <p className="text-xs text-slate-500 max-w-xs mx-auto">
-            Set up your student profile to split expenses with roommates and manage honesty agreements.
+            Set up your profile to split expenses with friends, roommates, or peers and manage honesty agreements.
           </p>
         </div>
 

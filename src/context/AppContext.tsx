@@ -22,8 +22,12 @@ import {
   isSupabaseConfigured,
   fetchProfileFromSupabase,
   upsertProfileToSupabase,
+  fetchAllUsersFromSupabase,
   fetchGroupsFromSupabase,
   insertGroupToSupabase,
+  fetchGroupMembersFromSupabase,
+  insertGroupMemberToSupabase,
+  joinGroupByCodeInSupabase,
   fetchExpensesFromSupabase,
   insertExpenseToSupabase,
   deleteExpenseFromSupabase,
@@ -607,12 +611,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured()) {
       setIsLoading(true);
       try {
-        const [sbGroups, sbExpenses, sbSettlements] = await Promise.all([
+        const [sbUsers, sbGroups, sbExpenses, sbSettlements] = await Promise.all([
+          fetchAllUsersFromSupabase(),
           fetchGroupsFromSupabase(),
           fetchExpensesFromSupabase(),
           fetchSettlementsFromSupabase()
         ]);
 
+        if (sbUsers.length > 0) setAllUsers(sbUsers);
         if (sbGroups.length > 0) setGroupsState(sbGroups);
         if (sbExpenses.length > 0) setExpenses(sbExpenses);
         if (sbSettlements.length > 0) setSettlements(sbSettlements);
@@ -765,6 +771,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const joinGroupWithCode = async (code: string): Promise<boolean> => {
     const cleaned = code.trim().toUpperCase();
+
+    // First try Supabase join if configured
+    if (isSupabaseConfigured() && currentUser) {
+      const sbResult = await joinGroupByCodeInSupabase(cleaned, currentUser);
+      if (sbResult.success && sbResult.group) {
+        setGroupsState((prev) => (prev.some((g) => g.id === sbResult.group!.id) ? prev : [sbResult.group!, ...prev]));
+        showToast(sbResult.message, 'success');
+        setActiveView('group-detail', sbResult.group.id);
+        return true;
+      }
+    }
+
     const found = groupsState.find((g) => g.groupCode?.toUpperCase() === cleaned);
     if (found) {
       showToast(`Joined ${found.name} successfully! 🚀`, 'success');

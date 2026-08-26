@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.js';
-import { Group, Expense, DebtEdge, GroupActivity } from '../types.js';
+import { Group, Expense, DebtEdge, GroupActivity, GroupMember } from '../types.js';
+import { calculateDebtsClient } from '../data/mockData.js';
+import {
+  isSupabaseConfigured,
+  fetchGroupsFromSupabase,
+  fetchExpensesFromSupabase,
+  fetchGroupMembersFromSupabase
+} from '../lib/supabase.js';
 import {
   ArrowLeft,
   Copy,
@@ -46,6 +53,54 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
   const fetchGroupDetails = async () => {
     setIsLoading(true);
     try {
+      if (isSupabaseConfigured()) {
+        const [sbGroups, sbExpenses, sbMembers] = await Promise.all([
+          fetchGroupsFromSupabase(),
+          fetchExpensesFromSupabase(undefined, groupId),
+          fetchGroupMembersFromSupabase(groupId)
+        ]);
+
+        const matched = sbGroups.find((g) => g.id === groupId);
+        if (matched) {
+          const membersWithUsers = sbMembers.length > 0
+            ? sbMembers.map((m) => ({
+                ...m,
+                user: allUsers.find((u) => u.id === m.userId) || (currentUser?.id === m.userId ? currentUser : {
+                  id: m.userId,
+                  name: `Member ${m.userId.substring(0, 5)}`,
+                  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+                })
+              }))
+            : [
+                {
+                  id: `gm_${matched.id}_${matched.ownerId}`,
+                  groupId: matched.id,
+                  userId: matched.ownerId,
+                  role: 'owner',
+                  status: 'active',
+                  joinedAt: matched.createdAt,
+                  user: allUsers.find((u) => u.id === matched.ownerId) || (currentUser?.id === matched.ownerId ? currentUser : undefined)
+                }
+              ];
+
+          const groupExpenses = sbExpenses.filter((e) => e.groupId === groupId);
+          const debtsCalculated = calculateDebtsClient(groupExpenses, [
+            ...allUsers,
+            ...(currentUser ? [currentUser] : [])
+          ]);
+
+          setGroupData({
+            ...matched,
+            members: membersWithUsers,
+            expenses: groupExpenses,
+            activities: []
+          });
+          setDebts(debtsCalculated);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch(`/api/groups/${groupId}`);
       const data = await res.json();
       if (data.group) {

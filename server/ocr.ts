@@ -130,7 +130,7 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `You are an expert Optical Character Recognition (OCR) and financial document vision parser for SplitMate, an Indian student expense & bill-splitting application.
+    const promptText = `You are an expert Optical Character Recognition (OCR) and financial document vision parser for SmartSplitMate, a modern smart expense & bill-splitting application for groups, roommates, and teams.
 
 Your task is to analyze the provided image with MAXIMUM VISION ACCURACY and document understanding. The image can be:
 1. **Restaurant / Cafe / Canteen Bills**: Thermal receipts, printed KOTs, printed table invoices with Food items, Quantity, Rate, Amount, Subtotal, CGST, SGST, Service Charges, Discounts, Round off, Grand Total.
