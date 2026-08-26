@@ -491,11 +491,15 @@ class DatabaseStore {
       username,
       email: payload.email,
       avatarUrl: payload.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
-      institution: 'Delhi Technological University',
-      course: 'B.Tech Engineering',
-      year: '3rd Year',
-      city: 'New Delhi',
-      bio: 'Excited to track student expenses with SplitMate!',
+      institution: '',
+      course: '',
+      year: '',
+      yearOfStudy: '',
+      city: '',
+      address: '',
+      phone: '',
+      upiId: '',
+      bio: '',
       createdAt: new Date().toISOString()
     };
 

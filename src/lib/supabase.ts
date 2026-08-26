@@ -129,17 +129,21 @@ export async function fetchProfileFromSupabase(userId: string): Promise<User | n
     if (error || !data) return null;
     return {
       id: data.id,
-      googleId: data.google_id,
-      name: data.name,
-      username: data.username,
-      email: data.email,
-      avatarUrl: data.avatar_url,
-      institution: data.institution || 'Delhi Technological University',
-      course: data.course || 'B.Tech Engineering',
-      year: data.year || '3rd Year',
-      city: data.city || 'New Delhi',
-      bio: data.bio,
-      createdAt: data.created_at
+      googleId: data.google_id || '',
+      name: data.name || '',
+      username: data.username || '',
+      email: data.email || '',
+      avatarUrl: data.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+      institution: data.institution || '',
+      course: data.course || '',
+      year: data.year || data.year_of_study || '',
+      yearOfStudy: data.year_of_study || data.year || '',
+      city: data.city || '',
+      address: data.address || '',
+      phone: data.phone || '',
+      upiId: data.upi_id || '',
+      bio: data.bio || '',
+      createdAt: data.created_at || new Date().toISOString()
     };
   } catch {
     return null;
@@ -151,16 +155,20 @@ export async function upsertProfileToSupabase(user: User): Promise<boolean> {
   try {
     const { error } = await supabase.from('profiles').upsert({
       id: user.id,
-      google_id: user.googleId,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      avatar_url: user.avatarUrl,
-      institution: user.institution,
-      course: user.course,
-      year: user.year,
-      city: user.city,
-      bio: user.bio,
+      google_id: user.googleId || '',
+      name: user.name || '',
+      username: user.username || '',
+      email: user.email || '',
+      avatar_url: user.avatarUrl || '',
+      institution: user.institution || '',
+      course: user.course || '',
+      year: user.year || user.yearOfStudy || '',
+      year_of_study: user.yearOfStudy || user.year || '',
+      city: user.city || '',
+      address: user.address || '',
+      phone: user.phone || '',
+      upi_id: user.upiId || '',
+      bio: user.bio || '',
       updated_at: new Date().toISOString()
     });
     return !error;

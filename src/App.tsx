@@ -42,7 +42,10 @@ const MainLayout: React.FC = () => {
       if (activeView === 'dashboard') {
         return <LandingHomeView />;
       }
-      // For any direct feature attempt without login, show AuthGateView
+      if (activeView === 'discover') {
+        return <DiscoverGroups />;
+      }
+      // For any other private feature attempt without login, show AuthGateView
       return <AuthGateView feature={activeView} />;
     }
 

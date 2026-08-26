@@ -12,6 +12,9 @@ export interface User {
   year: string;
   yearOfStudy?: string;
   city: string;
+  address?: string;
+  phone?: string;
+  upiId?: string;
   bio?: string;
   honestyScore?: number;
   createdAt: string;
@@ -56,14 +59,20 @@ export interface OCRReceiptResult {
   merchantName: string;
   date: string;
   receiptNumber?: string;
+  category?: 'Food' | 'Transport' | 'Education' | 'Shopping' | 'Entertainment' | 'Hostel' | 'Other';
+  currency?: string;
   items: OCRItem[];
   subtotal: number;
   discount: number;
   tax: number;
   serviceCharge: number;
+  roundOff?: number;
   total: number;
   confidenceOverall: 'high' | 'medium' | 'low';
   rawText?: string;
+  upiRef?: string;
+  isAiParsed?: boolean;
+  modelUsed?: string;
 }
 
 export interface ExpenseItem {

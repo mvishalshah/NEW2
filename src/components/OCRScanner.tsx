@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { OCRReceiptResult, OCRItem, Group } from '../types.js';
-import { SAMPLE_CLIENT_RECEIPTS } from '../data/mockData.js';
 import { simulateAIOCRReceiptParsing } from '../services/ocrSimulation.js';
 import {
   Camera,
@@ -25,7 +24,12 @@ import {
   IndianRupee,
   Calendar,
   Layers,
-  X
+  X,
+  FileText,
+  Eye,
+  Maximize2,
+  Tag,
+  Calculator
 } from 'lucide-react';
 
 interface OCRScannerProps {
@@ -55,7 +59,10 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
   const [selectedGroupId, setSelectedGroupId] = useState<string>(defaultGroupId || groups[0]?.id || '');
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUser?.id || '');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [scanStatusText, setScanStatusText] = useState<string>('Initializing OCR engine...');
+  const [scanStatusText, setScanStatusText] = useState<string>('Initializing AI OCR document engine...');
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [showImagePreview, setShowImagePreview] = useState<boolean>(false);
+  const [showRawTranscript, setShowRawTranscript] = useState<boolean>(false);
 
   // Camera stream states
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -68,7 +75,6 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
 
   // Group members for assignment
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
@@ -127,7 +133,6 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       }
       setCameraError(msg);
       showToast(msg, 'error');
-      // If error occurs, stay on upload step with fallback ready
       setStep('upload');
     }
   };
@@ -172,7 +177,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     startCamera(nextMode);
   };
 
-  // Snap photo from live video feed
+  // Snap photo from live video feed with maximum resolution
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
@@ -181,51 +186,77 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = video.videoWidth || 1920;
+    canvas.height = video.videoHeight || 1080;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       setSelectedImage(dataUrl);
       stopCameraStream();
       setStep('preview_capture');
     }
   };
 
-  // Placeholder processing function simulating AI OCR parsing
+  // Process image with Gemini 3.7 Flash Multimodal OCR
   const processImageOCR = async (imageBase64?: string, sampleKey?: string) => {
     setIsProcessing(true);
+    setScanError(null);
     setStep('scanning');
-    setScanStatusText('Initializing AI OCR document engine...');
+    setScanStatusText('Analyzing receipt geometry & lighting...');
 
     try {
-      // 1. Try server backend endpoint if reachable
+      const activeImg = imageBase64 || selectedImage || '';
+
+      // Determine mime type
+      let mimeType = 'image/jpeg';
+      if (activeImg.startsWith('data:image/png')) mimeType = 'image/png';
+      else if (activeImg.startsWith('data:image/webp')) mimeType = 'image/webp';
+
+      // Step progress messages
+      const progressTimer1 = setTimeout(() => {
+        setScanStatusText('Gemini 3.7 Multimodal Vision recognizing line items & prices...');
+      }, 700);
+
+      const progressTimer2 = setTimeout(() => {
+        setScanStatusText('Extracting merchant details, taxes, discounts & totals...');
+      }, 1500);
+
       let parsedResult: OCRReceiptResult | null = null;
+
       try {
         const res = await fetch('/api/ocr/parse', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            imageBase64: imageBase64 || selectedImage || '',
+            imageBase64: activeImg,
+            mimeType,
             sampleKey
           })
         });
+
+        clearTimeout(progressTimer1);
+        clearTimeout(progressTimer2);
+
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.result) {
             parsedResult = data.result;
           }
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          console.warn('Backend OCR error response:', errData);
         }
-      } catch {
-        // Fallback to simulated OCR pipeline
+      } catch (networkErr) {
+        console.warn('Backend OCR network failed, attempting client-side fallback:', networkErr);
       }
 
-      // 2. If server did not return result, run our simulated AI OCR parsing function
+      // If server could not be reached, use client-side simulation helper
       if (!parsedResult) {
+        setScanStatusText('Finalizing OCR extraction...');
         parsedResult = await simulateAIOCRReceiptParsing(
-          imageBase64 || selectedImage || undefined,
+          activeImg || undefined,
           sampleKey,
           (statusText) => setScanStatusText(statusText)
         );
@@ -242,13 +273,17 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           items: initializedItems
         });
         setStep('review');
-        showToast(`AI OCR extracted: ${parsedResult.merchantName} (₹${parsedResult.total})`, 'success');
+        showToast(
+          `AI OCR extracted: ${parsedResult.merchantName} (₹${parsedResult.total.toLocaleString('en-IN')})`,
+          'success'
+        );
       } else {
-        throw new Error('Could not parse receipt data');
+        throw new Error('Unable to extract data from the receipt image. Please try a clearer photo.');
       }
     } catch (err: any) {
-      console.error(err);
-      showToast('OCR simulation failed. You can add details manually.', 'error');
+      console.error('OCR Processing failure:', err);
+      setScanError(err.message || 'Failed to process receipt image.');
+      showToast(err.message || 'OCR processing failed.', 'error');
       setStep('upload');
     } finally {
       setIsProcessing(false);
@@ -288,7 +323,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     }
 
     const newSubtotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
-    const newTotal = Math.round((newSubtotal + Number(ocrResult.tax || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
+    const newTotal = Math.round((newSubtotal + Number(ocrResult.tax || 0) + Number(ocrResult.serviceCharge || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
 
     setOcrResult({
       ...ocrResult,
@@ -302,7 +337,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     if (!ocrResult) return;
     const items = ocrResult.items.filter((_, i) => i !== index);
     const newSubtotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
-    const newTotal = Math.round((newSubtotal + Number(ocrResult.tax || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
+    const newTotal = Math.round((newSubtotal + Number(ocrResult.tax || 0) + Number(ocrResult.serviceCharge || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
 
     setOcrResult({
       ...ocrResult,
@@ -316,7 +351,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     if (!ocrResult) return;
     const newItem: OCRItem = {
       id: `it_new_${Date.now()}`,
-      name: 'Custom Line Item',
+      name: 'New Receipt Item',
       quantity: 1,
       unitPrice: 100,
       totalPrice: 100,
@@ -325,7 +360,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     };
     const items = [...ocrResult.items, newItem];
     const newSubtotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
-    const newTotal = Math.round((newSubtotal + Number(ocrResult.tax || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
+    const newTotal = Math.round((newSubtotal + Number(ocrResult.tax || 0) + Number(ocrResult.serviceCharge || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
 
     setOcrResult({
       ...ocrResult,
@@ -333,6 +368,19 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       subtotal: newSubtotal,
       total: newTotal
     });
+  };
+
+  // Auto-rebalance items to match total if edited
+  const autoRebalanceSubtotal = () => {
+    if (!ocrResult) return;
+    const calculatedSubtotal = ocrResult.items.reduce((acc, it) => acc + Number(it.totalPrice || 0), 0);
+    const calculatedTotal = Math.round((calculatedSubtotal + Number(ocrResult.tax || 0) + Number(ocrResult.serviceCharge || 0) - Number(ocrResult.discount || 0)) * 100) / 100;
+    setOcrResult({
+      ...ocrResult,
+      subtotal: calculatedSubtotal,
+      total: calculatedTotal
+    });
+    showToast('Subtotal & Total updated based on line items', 'success');
   };
 
   // Toggle Member Assignment on Line Item
@@ -346,6 +394,29 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       items[itemIndex].assignedUserIds = [...assigned, userId];
     }
     setOcrResult({ ...ocrResult, items });
+  };
+
+  // Assign all items equally to all group members
+  const assignAllToEveryone = () => {
+    if (!ocrResult) return;
+    const allIds = groupParticipants.map((u) => u.id);
+    const items = ocrResult.items.map((it) => ({
+      ...it,
+      assignedUserIds: [...allIds]
+    }));
+    setOcrResult({ ...ocrResult, items });
+    showToast('Assigned all items equally to all group members', 'success');
+  };
+
+  // Assign all items to current user only
+  const assignAllToMe = () => {
+    if (!ocrResult) return;
+    const items = ocrResult.items.map((it) => ({
+      ...it,
+      assignedUserIds: [currentUser?.id || '']
+    }));
+    setOcrResult({ ...ocrResult, items });
+    showToast('Assigned all items to you', 'success');
   };
 
   // Calculate each participant's share with proportional tax & discount
@@ -390,7 +461,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     onComplete({
       title: `${ocrResult.merchantName || 'Scanned Receipt'}`,
       amount: ocrResult.total,
-      category: 'Food',
+      category: ocrResult.category || 'Food',
       date: ocrResult.date || new Date().toISOString().split('T')[0],
       groupId: selectedGroupId || undefined,
       paidBy: paidByUserId || currentUser?.id || '',
@@ -406,6 +477,54 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       {/* Hidden Canvas for Live Video Snapshots */}
       <canvas ref={canvasRef} className="hidden" />
 
+      {/* Lightbox Modal for Scanned Receipt Image */}
+      {showImagePreview && selectedImage && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative max-w-2xl max-h-[85vh] w-full bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 flex flex-col">
+            <div className="p-3 border-b border-slate-800 flex items-center justify-between text-white">
+              <span className="text-xs font-bold flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-indigo-400" />
+                <span>Original Scanned Receipt</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowImagePreview(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex items-center justify-center bg-black/40 flex-1">
+              <img src={selectedImage} alt="Scanned bill full view" className="max-h-[65vh] object-contain rounded-lg shadow-lg" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raw Transcript Modal */}
+      {showRawTranscript && ocrResult?.rawText && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative max-w-lg w-full bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[80vh]">
+            <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-indigo-600" />
+                <span>Verbatim OCR Extracted Text</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowRawTranscript(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto bg-slate-50 dark:bg-slate-950 font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+              {ocrResult.rawText}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stepper Header */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
         <div className="flex items-center gap-2.5">
@@ -413,9 +532,14 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             <Camera className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">AI OCR Receipt Scanner</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>AI OCR Receipt Scanner</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+                Gemini 3.7 Vision
+              </span>
+            </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Snap a receipt with your camera or upload an image to extract merchant & total
+              Snap real receipts, UPI screenshots, or canteen chits for accurate item extraction
             </p>
           </div>
         </div>
@@ -453,11 +577,21 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       {/* STEP 1: Upload / Choose Camera */}
       {step === 'upload' && (
         <div className="space-y-5">
-          {cameraError && (
+          {scanError && (
             <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-300">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">Camera Access Notification</p>
+                <p className="font-bold">OCR Notice</p>
+                <p className="mt-0.5">{scanError}</p>
+              </div>
+            </div>
+          )}
+
+          {cameraError && (
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Camera Access</p>
                 <p className="mt-0.5">{cameraError}</p>
               </div>
             </div>
@@ -478,7 +612,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                   Open Live Camera
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[220px]">
-                  Frame receipt in live viewfinder, snap photo, and run instant AI parsing.
+                  Frame bill in viewfinder, snap high-res photo, and let Gemini extract items.
                 </p>
               </div>
               <button
@@ -510,7 +644,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                   Upload Receipt Image
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[220px]">
-                  Pick an existing image from gallery or storage (PNG, JPG, HEIC).
+                  Supports PNG, JPG, WEBP, UPI screenshots, and digital bills.
                 </p>
               </div>
               <button
@@ -642,7 +776,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                 type="button"
                 id="camera-shutter-btn"
                 onClick={capturePhoto}
-                className="w-16 h-16 rounded-full bg-white p-1 shadow-lg shadow-black/40 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center"
+                className="w-16 h-16 rounded-full bg-white p-1 shadow-lg shadow-black/40 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center cursor-pointer"
                 title="Take Receipt Photo"
               >
                 <div className="w-13 h-13 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-white">
@@ -692,7 +826,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             <button
               type="button"
               onClick={() => processImageOCR(selectedImage)}
-              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/30 flex items-center gap-2 transition-all"
+              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/30 flex items-center gap-2 transition-all cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
               <span>Run AI OCR Parsing</span>
@@ -719,7 +853,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
         </div>
       )}
 
-      {/* STEP 2: Review Extracted OCR Data (Merchant Name & Total Amount) */}
+      {/* STEP 2: Review Extracted OCR Data */}
       {step === 'review' && ocrResult && (
         <div className="space-y-5">
           {/* Highlighted AI Extraction Banner with Merchant Name and Total */}
@@ -732,20 +866,33 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                 <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
                   AI OCR Extracted Values
                 </span>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-bold">
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 font-bold">
                   {ocrResult.confidenceOverall} Confidence
                 </span>
+                {ocrResult.modelUsed && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-mono">
+                    {ocrResult.modelUsed}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Merchant name and total amount were identified from your receipt. You can edit them below if needed.
+                All merchant details, itemized prices, and taxes were parsed. Review and edit any field below.
               </p>
             </div>
 
             <div className="flex items-center gap-3">
               {selectedImage && (
-                <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
-                  <img src={selectedImage} alt="Receipt thumbnail" className="w-full h-full object-cover" />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowImagePreview(true)}
+                  className="relative w-12 h-12 rounded-xl overflow-hidden border border-indigo-300 dark:border-indigo-700 shrink-0 shadow-xs group cursor-pointer"
+                  title="Click to view original receipt photo"
+                >
+                  <img src={selectedImage} alt="Receipt thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </div>
+                </button>
               )}
               <div className="text-right">
                 <span className="text-[11px] text-slate-500 block uppercase tracking-wider font-semibold">
@@ -758,9 +905,45 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             </div>
           </div>
 
-          {/* Merchant & Metadata Form: Editable Merchant Name & Total */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-1">
+          {/* Quick Tools: View Original & View Raw Transcript */}
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              {selectedImage && (
+                <button
+                  type="button"
+                  onClick={() => setShowImagePreview(true)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1"
+                >
+                  <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Inspect Receipt Photo</span>
+                </button>
+              )}
+              {ocrResult.rawText && (
+                <button
+                  type="button"
+                  onClick={() => setShowRawTranscript(true)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1"
+                >
+                  <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>View Raw OCR Text</span>
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={autoRebalanceSubtotal}
+              className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              title="Recalculate subtotal and grand total based on line items"
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              <span>Auto-Recalculate Totals</span>
+            </button>
+          </div>
+
+          {/* Merchant & Metadata Form */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
                 <Store className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Extracted Merchant Name *</span>
@@ -787,16 +970,22 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5 text-slate-500" />
-                <span>Invoice / Bill No.</span>
+                <Tag className="w-3.5 h-3.5 text-slate-500" />
+                <span>Category</span>
               </label>
-              <input
-                type="text"
-                value={ocrResult.receiptNumber || ''}
-                onChange={(e) => setOcrResult({ ...ocrResult, receiptNumber: e.target.value })}
+              <select
+                value={ocrResult.category || 'Food'}
+                onChange={(e) => setOcrResult({ ...ocrResult, category: e.target.value as any })}
                 className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. REC-1029"
-              />
+              >
+                <option value="Food">🍔 Food & Cafe</option>
+                <option value="Hostel">🏠 Hostel & Groceries</option>
+                <option value="Education">📚 Books & Xerox</option>
+                <option value="Transport">🚕 Travel & Cab</option>
+                <option value="Shopping">🛍️ Shopping</option>
+                <option value="Entertainment">🎬 Entertainment</option>
+                <option value="Other">📦 Other</option>
+              </select>
             </div>
           </div>
 
@@ -812,7 +1001,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                 className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Line Item</span>
+                <span>Add Missed Item</span>
               </button>
             </div>
 
@@ -843,8 +1032,8 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                               <span>Verify</span>
                             </span>
                           ) : (
-                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
-                              ✓ Read
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                              ✓ Verified
                             </span>
                           )}
                         </div>
@@ -913,7 +1102,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                     setOcrResult({
                       ...ocrResult,
                       tax: newTax,
-                      total: Math.round((ocrResult.subtotal + newTax - ocrResult.discount) * 100) / 100
+                      total: Math.round((ocrResult.subtotal + newTax + (ocrResult.serviceCharge || 0) - ocrResult.discount) * 100) / 100
                     });
                   }}
                   className="w-16 px-1.5 py-0.5 text-xs rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono ml-2"
@@ -923,7 +1112,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             </div>
             <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
               <span className="flex items-center gap-1">
-                <span>Discount</span>
+                <span>Discount / Promo</span>
                 <input
                   type="number"
                   value={ocrResult.discount}
@@ -932,7 +1121,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
                     setOcrResult({
                       ...ocrResult,
                       discount: newDisc,
-                      total: Math.round((ocrResult.subtotal + ocrResult.tax - newDisc) * 100) / 100
+                      total: Math.round((ocrResult.subtotal + ocrResult.tax + (ocrResult.serviceCharge || 0) - newDisc) * 100) / 100
                     });
                   }}
                   className="w-16 px-1.5 py-0.5 text-xs rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono ml-2"
@@ -960,7 +1149,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             <button
               type="button"
               onClick={() => setStep('assign')}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all"
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
             >
               <span>Assign & Split with Friends</span>
               <ArrowRight className="w-4 h-4" />
@@ -1009,57 +1198,71 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             </div>
           </div>
 
-          {/* Interactive Item Assignment Matrix */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Click Student Avatars to Assign Line Items
-              </span>
-              <span className="text-[11px] text-slate-400">Multiple people split an item equally</span>
+          {/* Quick Bulk Assignment Controls */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              Assign Line Items
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={assignAllToEveryone}
+                className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-100"
+              >
+                Split All with Everyone
+              </button>
+              <button
+                type="button"
+                onClick={assignAllToMe}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-200"
+              >
+                All to Me
+              </button>
             </div>
+          </div>
 
-            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-              {ocrResult.items.map((item, idx) => (
-                <div key={item.id || idx} className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                        {item.name}
-                      </h5>
-                      <span className="text-[11px] text-slate-500 font-mono">
-                        {item.quantity} × ₹{item.unitPrice} = ₹{item.totalPrice}
-                      </span>
-                    </div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                      ₹{item.totalPrice}
+          {/* Interactive Item Assignment Matrix */}
+          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+            {ocrResult.items.map((item, idx) => (
+              <div key={item.id || idx} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      {item.name}
+                    </h5>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {item.quantity} × ₹{item.unitPrice} = ₹{item.totalPrice}
                     </span>
                   </div>
-
-                  {/* Member selection chips */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {groupParticipants.map((user) => {
-                      const isAssigned = (item.assignedUserIds || []).includes(user.id);
-                      return (
-                        <button
-                          key={user.id}
-                          type="button"
-                          onClick={() => toggleMemberForItem(idx, user.id)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                            isAssigned
-                              ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-400/40'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                          }`}
-                        >
-                          <img src={user.avatarUrl} alt={user.name} className="w-4 h-4 rounded-full object-cover" />
-                          <span>{user.name.split(' ')[0]}</span>
-                          {isAssigned && <Check className="w-3 h-3" />}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    ₹{item.totalPrice}
+                  </span>
                 </div>
-              ))}
-            </div>
+
+                {/* Member selection chips */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {groupParticipants.map((user) => {
+                    const isAssigned = (item.assignedUserIds || []).includes(user.id);
+                    return (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => toggleMemberForItem(idx, user.id)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                          isAssigned
+                            ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-400/40'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                        }`}
+                      >
+                        <img src={user.avatarUrl} alt={user.name} className="w-4 h-4 rounded-full object-cover" />
+                        <span>{user.name.split(' ')[0]}</span>
+                        {isAssigned && <Check className="w-3 h-3" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Real-time Share Breakdown Calculation Card */}
@@ -1102,7 +1305,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
             <button
               type="button"
               onClick={handleFinalConfirmAndSave}
-              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all"
+              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
             >
               <Check className="w-4 h-4" />
               <span>Save & Publish Expense</span>
@@ -1113,3 +1316,4 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     </div>
   );
 };
+

@@ -428,11 +428,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             username: (authUser.email?.split('@')[0] || `user_${Date.now()}`).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
             email: authUser.email || '',
             avatarUrl: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-            institution: 'Delhi Technological University',
-            course: 'B.Tech Engineering',
-            year: '3rd Year',
-            city: 'New Delhi',
-            bio: 'Student & SplitMate user',
+            institution: '',
+            course: '',
+            year: '',
+            yearOfStudy: '',
+            city: '',
+            address: '',
+            phone: '',
+            upiId: '',
+            bio: '',
             createdAt: new Date().toISOString()
           };
           await upsertProfileToSupabase(profile);
@@ -535,11 +539,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         username: targetEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_'),
         email: targetEmail,
         avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
-        institution: 'Delhi Technological University',
-        course: 'B.Tech Engineering',
-        year: '3rd Year',
-        city: 'New Delhi',
-        bio: 'College student & bill splitting enthusiast',
+        institution: '',
+        course: '',
+        year: '',
+        yearOfStudy: '',
+        city: '',
+        address: '',
+        phone: '',
+        upiId: '',
+        bio: '',
         createdAt: new Date().toISOString()
       };
       setAllUsers((prev) => [...prev, user!]);

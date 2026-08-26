@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { db } from './server/db.js';
-import { parseReceiptWithGemini } from './server/ocr.js';
+import { parseReceiptWithGemini, sampleReceiptTemplates } from './server/ocr.js';
 
 dotenv.config();
 
@@ -155,16 +155,24 @@ async function startServer() {
     res.json({ success: true, code: newCode });
   });
 
-  // OCR: Parse Receipt
+  // OCR: Parse Receipt with Multimodal Gemini 3.7 Flash
   app.post('/api/ocr/parse', async (req, res) => {
     try {
       const { imageBase64, mimeType, sampleKey } = req.body;
-      const result = await parseReceiptWithGemini(imageBase64, mimeType, sampleKey);
+      if (!imageBase64 && !sampleKey) {
+        return res.status(400).json({ error: 'Image base64 data or sample key is required' });
+      }
+      const result = await parseReceiptWithGemini(imageBase64, mimeType || 'image/jpeg', sampleKey);
       res.json({ success: true, result });
     } catch (err: any) {
       console.error('OCR API error:', err);
       res.status(500).json({ error: 'Failed to process receipt', details: err.message });
     }
+  });
+
+  // OCR: Preloaded Realistic Test Samples
+  app.get('/api/ocr/samples', (req, res) => {
+    res.json({ success: true, samples: sampleReceiptTemplates });
   });
 
   // Expenses: Add
