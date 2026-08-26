@@ -16,14 +16,20 @@ import {
   Sun,
   Layers,
   Sparkles,
-  CreditCard
+  CreditCard,
+  Zap,
+  ArrowRight
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const {
     currentUser,
+    signedInAccounts,
     allUsers,
-    switchUser,
+    jumpToAccount,
+    removeAccount,
+    logoutAll,
+    openAccountSwitcher,
     activeView,
     setActiveView,
     openAddExpenseModal,
@@ -65,6 +71,9 @@ export const Navbar: React.FC = () => {
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'profile', label: 'Profile', icon: UserIcon }
   ];
+
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const safeSignedInAccounts = Array.isArray(signedInAccounts) ? signedInAccounts : [];
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -202,12 +211,12 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
-                      {notifications.length === 0 ? (
+                      {safeNotifications.length === 0 ? (
                         <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
                           No notifications yet. You are all caught up! ✨
                         </div>
                       ) : (
-                        notifications.map((n) => (
+                        safeNotifications.map((n) => (
                           <div
                             key={n.id}
                             onClick={() => markNotificationRead(n.id)}
@@ -240,119 +249,245 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
 
-              {/* Student Switcher & Profile Button or Sign In Button */}
-              {currentUser ? (
-                <div className="relative" ref={userMenuRef}>
-                  <button
-                    id="user-profile-menu-btn"
-                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    aria-label="Open student profile and switcher"
-                    title="Profile & Account Switcher"
-                    className={`flex items-center gap-2 h-9 pl-1 pr-2 sm:pr-2.5 rounded-xl transition-all border shadow-xs active:scale-95 shrink-0 ${
-                      isUserMenuOpen || activeView === 'profile'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-500/20'
-                        : 'bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 border-slate-200/70 dark:border-slate-700/70'
-                    }`}
-                  >
-                    <div className="relative shrink-0">
-                      <img
-                        src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
-                        alt={currentUser.name}
-                        className="w-7 h-7 rounded-lg object-cover ring-1 ring-indigo-500/40"
-                      />
-                      <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full ring-1 ring-white dark:ring-slate-900" />
-                    </div>
-                    <div className="text-left hidden sm:block">
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none truncate max-w-[85px] md:max-w-[100px]">
-                        {currentUser.name?.split(' ')[0] || 'Profile'}
-                      </div>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  </button>
+              {/* 2-Account Jump Switcher Bar or Sign In / Sign Up */}
+              {safeSignedInAccounts.length > 0 && currentUser ? (
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Account Jump Pills (Max 2) */}
+                  <div className="flex items-center bg-slate-100/90 dark:bg-slate-800/90 p-0.5 sm:p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+                    {safeSignedInAccounts.map((account, idx) => {
+                      const isActive = account.id === currentUser.id;
+                      return (
+                        <button
+                          key={account.id}
+                          id={`nav-jump-account-${account.username}`}
+                          onClick={() => {
+                            if (!isActive) {
+                              jumpToAccount(account.id);
+                            }
+                          }}
+                          title={
+                            isActive
+                              ? `Active: ${account.name} (Slot ${idx + 1})`
+                              : `Click to Jump to ${account.name} (Slot ${idx + 1})`
+                          }
+                          className={`flex items-center gap-1.5 h-8 px-2 sm:px-2.5 rounded-xl text-xs font-bold transition-all ${
+                            isActive
+                              ? 'bg-white dark:bg-slate-900 text-indigo-900 dark:text-indigo-200 shadow-xs ring-1 ring-indigo-500/30'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 active:scale-95'
+                          }`}
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={account.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
+                              alt={account.name}
+                              className="w-5 h-5 rounded-md object-cover ring-1 ring-indigo-500/20"
+                            />
+                            {isActive && (
+                              <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                            )}
+                          </div>
+                          <span className="hidden sm:inline-block truncate max-w-[70px] md:max-w-[85px]">
+                            {account.name.split(' ')[0]}
+                          </span>
+                          {!isActive && (
+                            <span className="hidden md:inline-flex items-center gap-0.5 text-[9px] px-1 py-0.2 bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 rounded font-black">
+                              <Zap className="w-2.5 h-2.5" />
+                              <span>Jump</span>
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
 
-                  {isUserMenuOpen && (
-                    <div className="absolute right-0 mt-2.5 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-3 z-50 animate-in fade-in zoom-in-95 duration-150">
-                      {/* Current Active User Profile Header */}
-                      <div className="px-4 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                        <img
-                          src={currentUser.avatarUrl}
-                          alt={currentUser.name}
-                          className="w-10 h-10 rounded-xl object-cover ring-2 ring-indigo-500/40"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser.name}</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser.email}</p>
-                          <span className="inline-block mt-0.5 text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
-                            UPI: {currentUser.upiId || 'Not set'}
-                          </span>
-                        </div>
-                      </div>
+                    {/* If only 1 account signed in, show button to add 2nd account */}
+                    {signedInAccounts.length === 1 && (
+                      <button
+                        id="nav-add-second-account-btn"
+                        onClick={() => openAuthModal('signin')}
+                        title="Add 2nd Student Account (Max 2)"
+                        className="flex items-center gap-1 h-8 px-2 rounded-xl text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">2nd Account</span>
+                      </button>
+                    )}
+                  </div>
 
-                      {/* Switch Active Student Account */}
-                      <div className="p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                            Switch Student Account
-                          </span>
-                          <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
-                            Live Multi-User Test
-                          </span>
+                  {/* Profile Menu Dropdown Button */}
+                  <div className="relative" ref={userMenuRef}>
+                    <button
+                      id="user-profile-menu-btn"
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      aria-label="Open student profile and switcher"
+                      title="Profile & Dual Account Manager"
+                      className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all border shadow-xs active:scale-95 shrink-0 ${
+                        isUserMenuOpen || activeView === 'profile'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-500/20'
+                          : 'bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 border-slate-200/70 dark:border-slate-700/70'
+                      }`}
+                    >
+                      <ChevronDown className="w-4 h-4 text-slate-600 dark:text-slate-300 shrink-0" />
+                    </button>
+
+                    {isUserMenuOpen && (
+                      <div className="absolute right-0 mt-2.5 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 py-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                        {/* Current Active User Profile Header */}
+                        <div className="px-4 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                          <img
+                            src={currentUser.avatarUrl}
+                            alt={currentUser.name}
+                            className="w-10 h-10 rounded-xl object-cover ring-2 ring-indigo-500/40 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                {currentUser.name}
+                              </h4>
+                              <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[9px] font-black">
+                                Active
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser.email}</p>
+                            <span className="inline-block mt-0.5 text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">
+                              🤝 Honesty Verified
+                            </span>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          {allUsers.map((u) => {
-                            const isSelected = u.id === currentUser?.id;
-                            return (
-                              <button
-                                key={u.id}
-                                id={`switch-user-${u.username}`}
-                                onClick={() => {
-                                  switchUser(u.id);
-                                  setIsUserMenuOpen(false);
-                                }}
-                                className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all ${
-                                  isSelected
-                                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 font-semibold ring-1 ring-indigo-400/40'
-                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 truncate">
-                                  <img src={u.avatarUrl} alt={u.name} className="w-6 h-6 rounded-lg object-cover" />
-                                  <div className="truncate">
-                                    <span className="block truncate">{u.name}</span>
-                                    <span className="text-[10px] text-slate-400 block truncate">{u.course}</span>
+
+                        {/* Dual Account Fast Switcher (Max 2) */}
+                        <div className="p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-black tracking-wider text-slate-400 uppercase">
+                              Active Accounts ({safeSignedInAccounts.length}/2 Max)
+                            </span>
+                            <button
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                openAccountSwitcher();
+                              }}
+                              className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                            >
+                              Manage
+                            </button>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {safeSignedInAccounts.map((acc, i) => {
+                              const isSelected = acc.id === currentUser.id;
+                              return (
+                                <div
+                                  key={acc.id}
+                                  className={`flex items-center justify-between p-2 rounded-xl text-xs transition-all ${
+                                    isSelected
+                                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 font-semibold ring-1 ring-indigo-400/40'
+                                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-800/40'
+                                  }`}
+                                >
+                                  <div
+                                    onClick={() => {
+                                      if (!isSelected) {
+                                        jumpToAccount(acc.id);
+                                        setIsUserMenuOpen(false);
+                                      }
+                                    }}
+                                    className="flex items-center gap-2.5 truncate flex-1 cursor-pointer"
+                                  >
+                                    <img
+                                      src={acc.avatarUrl}
+                                      alt={acc.name}
+                                      className="w-7 h-7 rounded-lg object-cover shrink-0"
+                                    />
+                                    <div className="truncate min-w-0">
+                                      <span className="block truncate font-bold text-xs">{acc.name}</span>
+                                      <span className="text-[10px] text-slate-400 block truncate">
+                                        Slot {i + 1} • {acc.course || 'Student'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {isSelected ? (
+                                      <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-bold">
+                                        Active
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          jumpToAccount(acc.id);
+                                          setIsUserMenuOpen(false);
+                                        }}
+                                        className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-xs"
+                                      >
+                                        <Zap className="w-2.5 h-2.5" />
+                                        <span>Jump</span>
+                                      </button>
+                                    )}
+
+                                    <button
+                                      onClick={() => removeAccount(acc.id)}
+                                      title="Sign out this account"
+                                      className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                    >
+                                      <LogOut className="w-3.5 h-3.5" />
+                                    </button>
                                   </div>
                                 </div>
-                                {isSelected && <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-bold">Active</span>}
+                              );
+                            })}
+
+                            {signedInAccounts.length < 2 && (
+                              <button
+                                onClick={() => {
+                                  setIsUserMenuOpen(false);
+                                  openAuthModal('signin');
+                                }}
+                                className="w-full py-2 px-3 border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 flex items-center justify-center gap-1.5 transition-all"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add 2nd Account (Roommate)</span>
                               </button>
-                            );
-                          })}
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Navigation and Sign Out options */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 px-2 space-y-1">
+                          <button
+                            onClick={() => {
+                              setActiveView('profile');
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <UserIcon className="w-4 h-4 text-slate-500" />
+                            <span>View Profile & Settings</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              logout();
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4 text-rose-500" />
+                            <span>Sign Out Active Account</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              logoutAll();
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4 text-slate-400" />
+                            <span>Sign Out All Accounts</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 px-2 space-y-1">
-                        <button
-                          onClick={() => {
-                            setActiveView('profile');
-                            setIsUserMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <UserIcon className="w-4 h-4 text-slate-500" />
-                          <span>View Full Profile & UPI</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            logout();
-                            setIsUserMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4 text-rose-500" />
-                          <span>Sign Out to Demo</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">

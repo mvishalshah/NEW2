@@ -26,12 +26,14 @@ export const DiscoverGroups: React.FC = () => {
 
   const categories = ['all', 'College', 'Hostel', 'Trip', 'Project', 'Mess', 'Flatmates'];
 
-  const filteredGroups = publicGroups.filter((g) => {
+  const safePublicGroups = Array.isArray(publicGroups) ? publicGroups : [];
+  const filteredGroups = safePublicGroups.filter((g) => {
+    if (!g) return false;
     const matchesCategory = selectedCategory === 'all' || g.category === selectedCategory;
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !searchQuery ||
-      g.name.toLowerCase().includes(q) ||
+      (g.name && g.name.toLowerCase().includes(q)) ||
       (g.description && g.description.toLowerCase().includes(q)) ||
       (g.institution && g.institution.toLowerCase().includes(q)) ||
       (g.city && g.city.toLowerCase().includes(q));

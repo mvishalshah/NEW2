@@ -28,13 +28,15 @@ export const ExpensesListView: React.FC = () => {
 
   const categories = ['all', 'Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'];
 
-  const filteredExpenses = expenses.filter((exp) => {
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const filteredExpenses = safeExpenses.filter((exp) => {
+    if (!exp) return false;
     const matchesCat = selectedCategory === 'all' || exp.category === selectedCategory;
     const matchesGrp = selectedGroupId === 'all' || (selectedGroupId === 'personal' ? !exp.groupId : exp.groupId === selectedGroupId);
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !searchQuery ||
-      exp.title.toLowerCase().includes(q) ||
+      (exp.title && exp.title.toLowerCase().includes(q)) ||
       (exp.description && exp.description.toLowerCase().includes(q)) ||
       (exp.groupName && exp.groupName.toLowerCase().includes(q));
     return matchesCat && matchesGrp && matchesSearch;

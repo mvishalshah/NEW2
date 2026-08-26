@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext.js';
 import {
   Sparkles,
   GraduationCap,
-  CreditCard,
+  HeartHandshake,
   Building,
   Check
 } from 'lucide-react';
@@ -19,22 +19,18 @@ export const OnboardingModal: React.FC = () => {
 
   const [institution, setInstitution] = useState(currentUser?.institution || 'DTU Delhi');
   const [course, setCourse] = useState(currentUser?.course || 'B.Tech CS');
-  const [upiId, setUpiId] = useState(currentUser?.upiId || `${currentUser?.username || 'student'}@okaxis`);
+  const [yearOfStudy, setYearOfStudy] = useState(currentUser?.yearOfStudy || '3rd Year');
   const [city, setCity] = useState(currentUser?.city || 'New Delhi');
 
   if (!isOnboardingOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!upiId.trim()) {
-      showToast('Please enter your UPI ID for payments', 'error');
-      return;
-    }
 
     await updateProfile({
       institution,
       course,
-      upiId,
+      yearOfStudy,
       city
     });
 
@@ -53,25 +49,11 @@ export const OnboardingModal: React.FC = () => {
             Welcome to SplitMate! 🎓
           </h3>
           <p className="text-xs text-slate-500 max-w-xs mx-auto">
-            Set up your student profile and UPI ID to receive automatic bill splits from peers.
+            Set up your student profile to split expenses with roommates and manage honesty agreements.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Your UPI ID (For incoming student payments) *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. rahul@okaxis, 9876543210@paytm"
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
               College / University
@@ -81,7 +63,7 @@ export const OnboardingModal: React.FC = () => {
               placeholder="e.g. DTU Delhi / IIT Bombay"
               value={institution}
               onChange={(e) => setInstitution(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -92,36 +74,55 @@ export const OnboardingModal: React.FC = () => {
               </label>
               <input
                 type="text"
-                placeholder="e.g. B.Tech CS"
                 value={course}
                 onChange={(e) => setCourse(e.target.value)}
                 className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
               />
             </div>
-
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Hostel / City
+                Year of Study
               </label>
-              <input
-                type="text"
-                placeholder="e.g. Hostel 4, Delhi"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-              />
+              <select
+                value={yearOfStudy}
+                onChange={(e) => setYearOfStudy(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold"
+              >
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="Postgraduate">Postgraduate</option>
+              </select>
             </div>
           </div>
 
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-2 transition-all"
-            >
-              <Check className="w-4 h-4" />
-              <span>Get Started</span>
-            </button>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              City / Hostel Area
+            </label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
           </div>
+
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5">
+            <HeartHandshake className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-tight">
+              <strong>Honesty Agreement Protected:</strong> All peer money exchanges require mutual confirmation from both roommate sides.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+          >
+            <span>Complete Setup & Start</span>
+            <Check className="w-4 h-4" />
+          </button>
         </form>
       </div>
     </div>

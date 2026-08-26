@@ -42,6 +42,7 @@ interface Toast {
 
 interface AppContextType {
   currentUser: User | null;
+  signedInAccounts: User[];
   allUsers: User[];
   groups: Array<Group & { role: string; myBalance: number }>;
   publicGroups: Group[];
@@ -57,34 +58,43 @@ interface AppContextType {
   selectedGroupId: string | null;
   isAddExpenseModalOpen: boolean;
   initialAddExpenseMode: 'manual' | 'ocr';
-  isUPIModalOpen: boolean;
+  isMoneyExchangeOpen: boolean;
   isAuthModalOpen: boolean;
   authModalMode: 'signin' | 'signup';
+  isAccountSwitcherOpen: boolean;
   activeSettlementData: {
     recipientUser: User;
     amount: number;
     groupId?: string;
     note?: string;
+    existingSettlementId?: string;
+    isPayer?: boolean;
   } | null;
   isReminderModalOpen: boolean;
   activeReminderData: {
     receiverUser: User;
     amount: number;
     groupId?: string;
+    settlementId?: string;
   } | null;
   isOnboardingOpen: boolean;
   darkMode: boolean;
 
   // Actions
   loginUser: (user: User) => void;
+  jumpToAccount: (userId: string) => Promise<void>;
+  removeAccount: (userId: string) => Promise<void>;
+  logoutAll: () => Promise<void>;
+  openAccountSwitcher: () => void;
+  closeAccountSwitcher: () => void;
   setActiveView: (view: AppContextType['activeView'], groupId?: string) => void;
   openAddExpenseModal: (mode?: 'manual' | 'ocr', groupId?: string) => void;
   closeAddExpenseModal: () => void;
   openAuthModal: (mode?: 'signin' | 'signup') => void;
   closeAuthModal: () => void;
-  openUPIPayment: (data: { recipientUser: User; amount: number; groupId?: string; note?: string }) => void;
-  closeUPIPayment: () => void;
-  openReminderModal: (data: { receiverUser: User; amount: number; groupId?: string }) => void;
+  openMoneyExchange: (data: { recipientUser: User; amount: number; groupId?: string; note?: string; existingSettlementId?: string; isPayer?: boolean }) => void;
+  closeMoneyExchange: () => void;
+  openReminderModal: (data: { receiverUser: User; amount: number; groupId?: string; settlementId?: string }) => void;
   closeReminderModal: () => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
@@ -98,6 +108,8 @@ interface AppContextType {
   addExpense: (data: any) => Promise<Expense | null>;
   recordSettlement: (data: any) => Promise<boolean>;
   confirmSettlement: (settlementId: string) => Promise<boolean>;
+  agreeToHonesty: (settlementId: string) => Promise<boolean>;
+  rejectSettlement: (settlementId: string) => Promise<boolean>;
   sendPaymentReminder: (data: any) => Promise<{ success: boolean; message: string }>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -114,7 +126,11 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 function getStored<T>(key: string, defaultVal: T): T {
   try {
     const item = localStorage.getItem(`splitmate_${key}`);
-    return item ? JSON.parse(item) : defaultVal;
+    if (!item || item === 'undefined' || item === 'null') return defaultVal;
+    const parsed = JSON.parse(item);
+    if (parsed === null || parsed === undefined) return defaultVal;
+    if (Array.isArray(defaultVal) && !Array.isArray(parsed)) return defaultVal;
+    return parsed;
   } catch (e) {
     return defaultVal;
   }
@@ -129,12 +145,19 @@ function setStored<T>(key: string, value: T): void {
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => getStored<User | null>('current_user', null));
-  const [allUsers, setAllUsers] = useState<User[]>(() => getStored('all_users', initialUsers));
-  const [groupsState, setGroupsState] = useState<Group[]>(() => getStored('groups', initialGroups));
-  const [expenses, setExpenses] = useState<Expense[]>(() => getStored('expenses', initialExpenses));
-  const [settlements, setSettlements] = useState<Settlement[]>(() => getStored('settlements', initialSettlements));
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => getStored('notifications', initialNotifications));
+  const [signedInAccounts, setSignedInAccounts] = useState<User[]>(() => getStored<User[]>('signed_in_accounts', []));
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const savedUser = getStored<User | null>('current_user', null);
+    const savedAccounts = getStored<User[]>('signed_in_accounts', []);
+    if (savedUser && savedUser.id) return savedUser;
+    if (Array.isArray(savedAccounts) && savedAccounts.length > 0) return savedAccounts[0];
+    return null;
+  });
+  const [allUsers, setAllUsers] = useState<User[]>(() => getStored<User[]>('all_users', initialUsers));
+  const [groupsState, setGroupsState] = useState<Group[]>(() => getStored<Group[]>('groups', initialGroups));
+  const [expenses, setExpenses] = useState<Expense[]>(() => getStored<Expense[]>('expenses', initialExpenses));
+  const [settlements, setSettlements] = useState<Settlement[]>(() => getStored<Settlement[]>('settlements', initialSettlements));
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => getStored<AppNotification[]>('notifications', initialNotifications));
   
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -142,12 +165,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState<boolean>(false);
   const [initialAddExpenseMode, setInitialAddExpenseMode] = useState<'manual' | 'ocr'>('manual');
-  const [isUPIModalOpen, setIsUPIModalOpen] = useState<boolean>(false);
+  const [isMoneyExchangeOpen, setIsMoneyExchangeOpen] = useState<boolean>(false);
   const [activeSettlementData, setActiveSettlementData] = useState<any | null>(null);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState<boolean>(false);
   const [activeReminderData, setActiveReminderData] = useState<any | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+  const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const isSupabaseConnected = isSupabaseConfigured();
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -158,27 +182,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const safeExpenses = Array.isArray(expenses) ? expenses : initialExpenses;
+  const safeSettlements = Array.isArray(settlements) ? settlements : initialSettlements;
+  const safeGroups = Array.isArray(groupsState) ? groupsState : initialGroups;
+  const safeNotifications = Array.isArray(notifications) ? notifications : initialNotifications;
+
   // Calculate dynamic debts & summary: when signed in, calculate for currentUser; in demo preview (no account), calculate for initial demo user 'u1'
   const myDebts = currentUser
-    ? calculateDebtsClient(expenses, settlements).filter(
-        (d) => d.fromUserId === currentUser.id || d.toUserId === currentUser.id
+    ? calculateDebtsClient(safeExpenses, safeSettlements).filter(
+        (d) => d && (d.fromUserId === currentUser.id || d.toUserId === currentUser.id)
       )
-    : calculateDebtsClient(expenses, settlements).filter(
-        (d) => d.fromUserId === 'u1' || d.toUserId === 'u1'
+    : calculateDebtsClient(safeExpenses, safeSettlements).filter(
+        (d) => d && (d.fromUserId === 'u1' || d.toUserId === 'u1')
       );
 
   const financialSummary = currentUser
-    ? calculateFinancialSummaryClient(currentUser.id, expenses, settlements)
-    : calculateFinancialSummaryClient('u1', expenses, settlements);
+    ? calculateFinancialSummaryClient(currentUser.id, safeExpenses, safeSettlements)
+    : calculateFinancialSummaryClient('u1', safeExpenses, safeSettlements);
 
   // Compute enriched groups with user role and individual balance
-  const groups = groupsState.map((grp) => {
-    const groupDebts = calculateDebtsClient(expenses, settlements, grp.id);
+  const groups = safeGroups.map((grp) => {
+    const groupDebts = calculateDebtsClient(safeExpenses, safeSettlements, grp.id);
     let myBalance = 0;
     if (currentUser) {
-      groupDebts.forEach((d) => {
-        if (d.toUserId === currentUser.id) myBalance += d.amount;
-        if (d.fromUserId === currentUser.id) myBalance -= d.amount;
+      (groupDebts || []).forEach((d) => {
+        if (!d) return;
+        if (d.toUserId === currentUser.id) myBalance += (d.amount || 0);
+        if (d.fromUserId === currentUser.id) myBalance -= (d.amount || 0);
       });
     }
     return {
@@ -188,7 +218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
 
-  const publicGroups = groupsState.filter((g) => g.privacy === 'public');
+  const publicGroups = safeGroups.filter((g) => g && g.privacy === 'public');
 
   // Persistence helpers
   useEffect(() => {
@@ -200,6 +230,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    setStored('signed_in_accounts', signedInAccounts);
+  }, [signedInAccounts]);
 
   useEffect(() => {
     setStored('all_users', allUsers);
@@ -246,13 +280,128 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  // Strict 2-Account session manager
   const loginUser = useCallback((user: User) => {
+    setSignedInAccounts((prev) => {
+      let updated: User[];
+      const alreadyExists = prev.some((u) => u.id === user.id);
+      if (alreadyExists) {
+        updated = prev.map((u) => (u.id === user.id ? user : u));
+      } else if (prev.length < 2) {
+        updated = [...prev, user];
+      } else {
+        // Capped at 2: Replace the currently inactive account slot (or slot 2)
+        const activeIdx = prev.findIndex((u) => u.id === currentUser?.id);
+        if (activeIdx === 0) {
+          updated = [prev[0], user];
+        } else if (activeIdx === 1) {
+          updated = [user, prev[1]];
+        } else {
+          updated = [prev[0], user];
+        }
+      }
+      setStored('signed_in_accounts', updated);
+      return updated;
+    });
+
     setCurrentUser(user);
     setStored('current_user', user);
     setAllUsers((prev) => (prev.some((u) => u.id === user.id) ? prev.map((u) => (u.id === user.id ? user : u)) : [...prev, user]));
     setActiveViewState('dashboard');
-    showToast(`Welcome, ${user.name}! 👋`, 'success');
+    showToast(`Signed in as ${user.name}! 🎓`, 'success');
+  }, [currentUser?.id, showToast]);
+
+  // Fast 1-click jump between active accounts
+  const jumpToAccount = useCallback(async (userId: string) => {
+    const target = allUsers.find((u) => u.id === userId) || signedInAccounts.find((u) => u.id === userId);
+    if (!target) {
+      showToast('Account not found', 'error');
+      return;
+    }
+
+    setSignedInAccounts((prev) => {
+      if (prev.some((u) => u.id === target.id)) {
+        return prev;
+      }
+      let updated: User[];
+      if (prev.length < 2) {
+        updated = [...prev, target];
+      } else {
+        // Keep active account, replace other slot
+        const activeUser = prev.find((u) => u.id === currentUser?.id);
+        updated = activeUser ? [activeUser, target] : [prev[0], target];
+      }
+      setStored('signed_in_accounts', updated);
+      return updated;
+    });
+
+    setCurrentUser(target);
+    setStored('current_user', target);
+    showToast(`⚡ Jumped to ${target.name} (@${target.username})`, 'info');
+
+    try {
+      await fetch('/api/auth/switch-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: target.id })
+      });
+    } catch {}
+  }, [allUsers, signedInAccounts, currentUser?.id, showToast]);
+
+  const switchUser = useCallback(async (userId: string) => {
+    await jumpToAccount(userId);
+  }, [jumpToAccount]);
+
+  const removeAccount = useCallback(async (userId: string) => {
+    const target = signedInAccounts.find((u) => u.id === userId);
+    const remaining = signedInAccounts.filter((u) => u.id !== userId);
+    setSignedInAccounts(remaining);
+    setStored('signed_in_accounts', remaining);
+
+    if (currentUser?.id === userId) {
+      if (remaining.length > 0) {
+        setCurrentUser(remaining[0]);
+        setStored('current_user', remaining[0]);
+        showToast(`Signed out ${target?.name || 'account'}. Active: ${remaining[0].name}`, 'info');
+      } else {
+        setCurrentUser(null);
+        try {
+          localStorage.removeItem('splitmate_current_user');
+        } catch {}
+        setActiveViewState('dashboard');
+        showToast(`Signed out ${target?.name || 'account'}. Viewing Home preview.`, 'info');
+      }
+    } else {
+      showToast(`Signed out ${target?.name || 'account'}.`, 'info');
+    }
+  }, [signedInAccounts, currentUser?.id, showToast]);
+
+  const logoutAll = useCallback(async () => {
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+    }
+    setSignedInAccounts([]);
+    setStored('signed_in_accounts', []);
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('splitmate_current_user');
+    } catch {}
+    setActiveViewState('dashboard');
+    showToast('Signed out of all accounts. Viewing home screen.', 'info');
   }, [showToast]);
+
+  const logout = useCallback(async () => {
+    if (currentUser) {
+      await removeAccount(currentUser.id);
+    } else {
+      await logoutAll();
+    }
+  }, [currentUser, removeAccount, logoutAll]);
+
+  const openAccountSwitcher = () => setIsAccountSwitcherOpen(true);
+  const closeAccountSwitcher = () => setIsAccountSwitcherOpen(false);
 
   const setActiveView = useCallback((view: AppContextType['activeView'], groupId?: string) => {
     setActiveViewState(view);
@@ -283,7 +432,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             course: 'B.Tech Engineering',
             year: '3rd Year',
             city: 'New Delhi',
-            upiId: `${authUser.email?.split('@')[0]}@okaxis`,
             bio: 'Student & SplitMate user',
             createdAt: new Date().toISOString()
           };
@@ -355,22 +503,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshAllData();
   }, [refreshAllData]);
 
-  const switchUser = async (userId: string) => {
-    const foundUser = allUsers.find((u) => u.id === userId);
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      showToast(`Switched account to ${foundUser.name} (@${foundUser.username})`, 'info');
-    }
-
-    try {
-      await fetch('/api/auth/switch-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-    } catch {}
-  };
-
   const googleLogin = async () => {
     if (isSupabaseConfigured()) {
       showToast('Redirecting to Google Sign-In via Supabase...', 'info');
@@ -407,30 +539,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         course: 'B.Tech Engineering',
         year: '3rd Year',
         city: 'New Delhi',
-        upiId: `${targetEmail.split('@')[0]}@okaxis`,
         bio: 'College student & bill splitting enthusiast',
         createdAt: new Date().toISOString()
       };
       setAllUsers((prev) => [...prev, user!]);
     }
 
-    setCurrentUser(user);
-    showToast(`Welcome back, ${user.name}! 👋 (Demo Session)`, 'success');
+    loginUser(user);
     setIsOnboardingOpen(true);
-  };
-
-  const logout = async () => {
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.auth.signOut();
-      } catch {}
-    }
-    try {
-      localStorage.removeItem('splitmate_current_user');
-    } catch {}
-    setCurrentUser(null);
-    setActiveViewState('dashboard');
-    showToast('Logged out. You are now viewing the demo preview.', 'info');
   };
 
   const updateProfile = async (data: Partial<User>): Promise<boolean> => {
@@ -561,22 +677,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const recordSettlement = async (data: any): Promise<boolean> => {
-    const fromUserId = data.fromUserId || currentUser?.id || 'u1';
+    const fromUserId = data.fromUserId || currentUser?.id || 'user_rahul';
+    const toUserId = data.toUserId;
+    const isCurrentPayer = currentUser ? currentUser.id === fromUserId : true;
+    const isCurrentReceiver = currentUser ? currentUser.id === toUserId : false;
+
+    // Both parties have to agree to confirm honesty:
+    const payerAgreed = data.payerAgreed !== undefined ? Boolean(data.payerAgreed) : isCurrentPayer;
+    const receiverAgreed = data.receiverAgreed !== undefined ? Boolean(data.receiverAgreed) : isCurrentReceiver;
+    const isFullyAgreed = payerAgreed && receiverAgreed;
+
+    const fromUserObj = allUsers.find((u) => u.id === fromUserId);
+    const toUserObj = allUsers.find((u) => u.id === toUserId);
+
+    const status: Settlement['status'] = isFullyAgreed
+      ? 'completed'
+      : payerAgreed
+      ? 'awaiting_receiver'
+      : 'awaiting_payer';
+
     const newSettlement: Settlement = {
-      id: `set_${Date.now()}`,
+      id: data.id || `set_${Date.now()}`,
       groupId: data.groupId,
       fromUserId,
-      toUserId: data.toUserId,
+      toUserId,
       amount: Number(data.amount),
-      status: 'completed',
-      paymentMethod: data.paymentMethod || 'upi',
+      status,
+      paymentMethod: data.paymentMethod || 'money_exchange',
       note: data.note,
+      payerAgreed,
+      payerAgreedAt: payerAgreed ? new Date().toISOString() : undefined,
+      receiverAgreed,
+      receiverAgreedAt: receiverAgreed ? new Date().toISOString() : undefined,
+      honestyDeclaration:
+        data.honestyDeclaration ||
+        `Honesty pledge recorded for ₹${data.amount} money exchange between ${fromUserObj?.name || 'payer'} and ${toUserObj?.name || 'receiver'}.`,
       createdAt: new Date().toISOString(),
-      paidAt: new Date().toISOString()
+      paidAt: new Date().toISOString(),
+      completedAt: isFullyAgreed ? new Date().toISOString() : undefined,
+      fromUser: fromUserObj,
+      toUser: toUserObj
     };
 
-    setSettlements((prev) => [newSettlement, ...prev]);
-    showToast(`Payment of ₹${data.amount} recorded! 💸`, 'success');
+    setSettlements((prev) => [newSettlement, ...prev.filter((s) => s.id !== newSettlement.id)]);
+
+    if (isFullyAgreed) {
+      showToast(`🤝 Mutual Honesty Verified! ₹${data.amount} exchange completed!`, 'success');
+      
+      const confirmNotifA: AppNotification = {
+        id: `notif_${Date.now()}_a`,
+        userId: fromUserId,
+        type: 'honesty_confirmed',
+        title: 'Money Exchange Verified 🤝',
+        message: `Both parties agreed in honesty! ₹${data.amount} exchange is fully settled.`,
+        read: false,
+        data: { amount: data.amount, settlementId: newSettlement.id },
+        createdAt: new Date().toISOString()
+      };
+      const confirmNotifB: AppNotification = {
+        id: `notif_${Date.now()}_b`,
+        userId: toUserId,
+        type: 'honesty_confirmed',
+        title: 'Money Exchange Verified 🤝',
+        message: `Both parties agreed in honesty! ₹${data.amount} exchange is fully settled.`,
+        read: false,
+        data: { amount: data.amount, settlementId: newSettlement.id },
+        createdAt: new Date().toISOString()
+      };
+      setNotifications((prev) => [confirmNotifA, confirmNotifB, ...prev]);
+    } else if (payerAgreed) {
+      showToast(`Honesty oath signed! Sent exchange reminder to ${toUserObj?.name || 'roommate'}.`, 'info');
+      
+      // Auto dispatch honesty request notification to the receiver
+      const requestNotif: AppNotification = {
+        id: `notif_${Date.now()}`,
+        userId: toUserId,
+        type: 'honesty_agreement_request',
+        title: `Honesty Agreement Request: ${fromUserObj?.name || 'Roommate'}`,
+        message: `${fromUserObj?.name || 'Roommate'} confirmed handing over ₹${data.amount}. Please click Agree to confirm honesty and complete settlement.`,
+        read: false,
+        data: { amount: data.amount, fromUserId, settlementId: newSettlement.id, groupId: data.groupId },
+        createdAt: new Date().toISOString()
+      };
+      setNotifications((prev) => [requestNotif, ...prev]);
+    } else if (receiverAgreed) {
+      showToast(`Honesty verified! Waiting for ${fromUserObj?.name || 'roommate'} to click Agree.`, 'info');
+    }
 
     if (isSupabaseConfigured()) {
       await insertSettlementToSupabase(newSettlement);
@@ -585,7 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await fetch('/api/settlements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify(newSettlement)
         });
       } catch {}
     }
@@ -593,35 +779,125 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const confirmSettlement = async (settlementId: string): Promise<boolean> => {
+  const agreeToHonesty = async (settlementId: string): Promise<boolean> => {
+    let completedSet: Settlement | null = null;
+
     setSettlements((prev) =>
-      prev.map((s) => (s.id === settlementId ? { ...s, status: 'completed', paidAt: new Date().toISOString() } : s))
+      prev.map((s) => {
+        if (s.id !== settlementId) return s;
+
+        const isPayer = currentUser ? s.fromUserId === currentUser.id : false;
+        const isReceiver = currentUser ? s.toUserId === currentUser.id : false;
+
+        const payerAgreed = isPayer ? true : s.payerAgreed;
+        const receiverAgreed = isReceiver ? true : s.receiverAgreed;
+        const bothAgreed = payerAgreed && receiverAgreed;
+
+        const updated: Settlement = {
+          ...s,
+          payerAgreed,
+          payerAgreedAt: isPayer ? new Date().toISOString() : s.payerAgreedAt,
+          receiverAgreed,
+          receiverAgreedAt: isReceiver ? new Date().toISOString() : s.receiverAgreedAt,
+          status: bothAgreed ? 'completed' : isPayer ? 'awaiting_receiver' : 'awaiting_payer',
+          completedAt: bothAgreed ? new Date().toISOString() : s.completedAt
+        };
+
+        if (bothAgreed) {
+          completedSet = updated;
+        }
+        return updated;
+      })
     );
-    showToast('Settlement confirmed and marked complete! ✅', 'success');
+
+    if (completedSet) {
+      const setObj: Settlement = completedSet;
+      showToast(`🤝 Mutual Honesty Verified! ₹${setObj.amount} exchange completed!`, 'success');
+
+      const notifA: AppNotification = {
+        id: `notif_${Date.now()}_a`,
+        userId: setObj.fromUserId,
+        type: 'honesty_confirmed',
+        title: 'Money Exchange Verified 🤝',
+        message: `Both parties agreed in honesty! ₹${setObj.amount} exchange is fully settled.`,
+        read: false,
+        data: { amount: setObj.amount, settlementId: setObj.id },
+        createdAt: new Date().toISOString()
+      };
+      const notifB: AppNotification = {
+        id: `notif_${Date.now()}_b`,
+        userId: setObj.toUserId,
+        type: 'honesty_confirmed',
+        title: 'Money Exchange Verified 🤝',
+        message: `Both parties agreed in honesty! ₹${setObj.amount} exchange is fully settled.`,
+        read: false,
+        data: { amount: setObj.amount, settlementId: setObj.id },
+        createdAt: new Date().toISOString()
+      };
+      setNotifications((prev) => [notifA, notifB, ...prev]);
+    } else {
+      showToast('Your honesty agreement was registered! Waiting for the other member to agree.', 'info');
+    }
 
     try {
-      await fetch(`/api/settlements/${settlementId}/confirm`, {
+      await fetch(`/api/settlements/${settlementId}/agree`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser?.id })
       });
     } catch {}
 
     return true;
   };
 
+  const rejectSettlement = async (settlementId: string): Promise<boolean> => {
+    setSettlements((prev) =>
+      prev.map((s) => (s.id === settlementId ? { ...s, status: 'rejected' } : s))
+    );
+    showToast('Money exchange marked as disputed/cancelled.', 'info');
+    try {
+      await fetch(`/api/settlements/${settlementId}/reject`, { method: 'POST' });
+    } catch {}
+    return true;
+  };
+
+  const confirmSettlement = async (settlementId: string): Promise<boolean> => {
+    return agreeToHonesty(settlementId);
+  };
+
   const sendPaymentReminder = async (data: any): Promise<{ success: boolean; message: string }> => {
     const receiver = allUsers.find((u) => u.id === data.receiverId);
     const senderName = currentUser?.name || 'Student';
-    const msg = `Reminder for ₹${data.amount} sent to ${receiver?.name || 'student'}.`;
-    
+    const msg = `Payment reminder & honesty pledge sent to ${receiver?.name || 'roommate'}.`;
+
+    // If an existing settlement was referenced or create one
+    let targetSettlementId = data.settlementId;
+    if (!targetSettlementId) {
+      const existing = settlements.find(
+        (s) =>
+          ((s.fromUserId === currentUser?.id && s.toUserId === data.receiverId) ||
+            (s.toUserId === currentUser?.id && s.fromUserId === data.receiverId)) &&
+          s.status !== 'completed' &&
+          s.status !== 'rejected'
+      );
+      targetSettlementId = existing?.id;
+    }
+
     const newNotif: AppNotification = {
       id: `notif_${Date.now()}`,
       userId: data.receiverId,
-      type: 'payment_reminder',
-      title: `Payment Reminder from ${senderName}`,
-      message: `${senderName} sent a friendly reminder for ₹${data.amount} ${data.note ? `("${data.note}")` : ''}`,
+      type: 'honesty_agreement_request',
+      title: `Payment Reminder & Honesty Request: ${senderName}`,
+      message: `${senderName} sent a friendly reminder for ₹${data.amount} ${
+        data.note ? `("${data.note}")` : ''
+      }. Please confirm honesty to complete settlement.`,
       read: false,
-      data: { amount: data.amount, fromUserId: currentUser?.id, groupId: data.groupId },
+      data: {
+        amount: data.amount,
+        fromUserId: currentUser?.id,
+        settlementId: targetSettlementId,
+        groupId: data.groupId
+      },
       createdAt: new Date().toISOString()
     };
 
@@ -693,22 +969,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAddExpenseModalOpen(false);
   };
 
-  const openUPIPayment = (data: { recipientUser: User; amount: number; groupId?: string; note?: string }) => {
+  const openMoneyExchange = (data: {
+    recipientUser: User;
+    amount: number;
+    groupId?: string;
+    note?: string;
+    existingSettlementId?: string;
+    isPayer?: boolean;
+  }) => {
     if (!currentUser) {
       openAuthModal('signin');
-      showToast('Please sign in or sign up to settle payments via UPI', 'info');
+      showToast('Please sign in or sign up to record money exchanges & confirm honesty', 'info');
       return;
     }
     setActiveSettlementData(data);
-    setIsUPIModalOpen(true);
+    setIsMoneyExchangeOpen(true);
   };
 
-  const closeUPIPayment = () => {
-    setIsUPIModalOpen(false);
+  const closeMoneyExchange = () => {
+    setIsMoneyExchangeOpen(false);
     setActiveSettlementData(null);
   };
 
-  const openReminderModal = (data: { receiverUser: User; amount: number; groupId?: string }) => {
+  const openReminderModal = (data: { receiverUser: User; amount: number; groupId?: string; settlementId?: string }) => {
     if (!currentUser) {
       openAuthModal('signin');
       showToast('Please sign in or sign up to send payment reminders', 'info');
@@ -748,6 +1031,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         currentUser,
+        signedInAccounts,
         allUsers,
         groups,
         publicGroups,
@@ -763,22 +1047,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedGroupId,
         isAddExpenseModalOpen,
         initialAddExpenseMode,
-        isUPIModalOpen,
+        isMoneyExchangeOpen,
         isAuthModalOpen,
         authModalMode,
+        isAccountSwitcherOpen,
         activeSettlementData,
         isReminderModalOpen,
         activeReminderData,
         isOnboardingOpen,
         darkMode,
         loginUser,
+        jumpToAccount,
+        removeAccount,
+        logoutAll,
+        openAccountSwitcher,
+        closeAccountSwitcher,
         setActiveView,
         openAddExpenseModal,
         closeAddExpenseModal,
         openAuthModal,
         closeAuthModal,
-        openUPIPayment,
-        closeUPIPayment,
+        openMoneyExchange,
+        closeMoneyExchange,
         openReminderModal,
         closeReminderModal,
         showToast,
@@ -793,6 +1083,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addExpense,
         recordSettlement,
         confirmSettlement,
+        agreeToHonesty,
+        rejectSettlement,
         sendPaymentReminder,
         markNotificationRead,
         markAllNotificationsRead,

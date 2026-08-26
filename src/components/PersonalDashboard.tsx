@@ -9,14 +9,17 @@ import {
   Plus,
   Users,
   Send,
-  CreditCard,
+  HeartHandshake,
+  ShieldCheck,
   TrendingUp,
   Clock,
   Sparkles,
   ChevronRight,
   AlertCircle,
   CheckCircle2,
-  Calendar
+  Calendar,
+  UserCheck,
+  CreditCard
 } from 'lucide-react';
 
 export const PersonalDashboard: React.FC = () => {
@@ -26,8 +29,10 @@ export const PersonalDashboard: React.FC = () => {
     groups,
     myDebts,
     expenses,
+    settlements,
     openAddExpenseModal,
-    openUPIPayment,
+    openMoneyExchange,
+    agreeToHonesty,
     openReminderModal,
     openAuthModal,
     setActiveView
@@ -37,8 +42,18 @@ export const PersonalDashboard: React.FC = () => {
 
   // Filter pending debts (if guest, use sample user 'u1' for interactive demo preview)
   const effectiveUserId = currentUser?.id || 'u1';
-  const debtsIOwe = myDebts.filter((d) => d.fromUserId === effectiveUserId);
-  const debtsOwedToMe = myDebts.filter((d) => d.toUserId === effectiveUserId);
+  const safeDebts = Array.isArray(myDebts) ? myDebts : [];
+  const debtsIOwe = safeDebts.filter((d) => d && d.fromUserId === effectiveUserId);
+  const debtsOwedToMe = safeDebts.filter((d) => d && d.toUserId === effectiveUserId);
+  const safeSettlements = Array.isArray(settlements) ? settlements : [];
+  const pendingAgreements = safeSettlements.filter(
+    (s) =>
+      s &&
+      s.status !== 'completed' &&
+      s.status !== 'rejected' &&
+      ((s.toUserId === effectiveUserId && !s.receiverAgreed) ||
+        (s.fromUserId === effectiveUserId && !s.payerAgreed))
+  );
 
   const categoryColors: Record<string, { bg: string; text: string; bar: string }> = {
     Food: { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-700 dark:text-amber-300', bar: 'bg-amber-500' },
@@ -112,8 +127,8 @@ export const PersonalDashboard: React.FC = () => {
             </h1>
             <p className="text-sm text-indigo-100/90 max-w-xl">
               {currentUser
-                ? 'Track student bills, scan canteens & hostel receipts with AI OCR, and settle via UPI instantly.'
-                : 'Track student bills, scan canteen & mess receipts with Gemini OCR, and settle via UPI seamlessly.'}
+                ? 'Track student bills, scan canteens & hostel receipts with AI OCR, and settle via money exchange with mutual honesty agreement.'
+                : 'Track student bills, scan canteen & mess receipts with Gemini OCR, and settle through honesty-verified money exchanges.'}
             </p>
           </div>
 
@@ -222,15 +237,51 @@ export const PersonalDashboard: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <AlertCircle className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <HeartHandshake className="w-4 h-4" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Pending UPI Settlements</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Money Exchanges & Honesty Status</h3>
                 </div>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {debtsIOwe.length + debtsOwedToMe.length} items
+                  {debtsIOwe.length + debtsOwedToMe.length} pending
                 </span>
               </div>
+
+              {/* Pending Honesty Action Card if there is an active agreement waiting for this user */}
+              {pendingAgreements.length > 0 && (
+                <div className="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+                    <ShieldCheck className="w-4 h-4 text-amber-600" />
+                    <span>Action Required: Roommate Honesty Agreement</span>
+                  </div>
+                  {pendingAgreements.map((s) => {
+                    const otherUser = s.fromUserId === effectiveUserId ? s.toUser : s.fromUser;
+                    return (
+                      <div
+                        key={s.id}
+                        className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                      >
+                          <div className="text-xs">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {otherUser?.name || 'Roommate'}
+                            </span>{' '}
+                            exchanged <strong>₹{s.amount}</strong> ({s.paymentMethod?.replace('_', ' ') || 'cash'}).
+                            <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                              Click Agree to verify receipt and complete the settlement.
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => agreeToHonesty(s.id)}
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0"
+                          >
+                            <HeartHandshake className="w-3.5 h-3.5" />
+                            <span>Agree & Confirm Honesty</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
 
               <div className="space-y-3">
                 {/* Money I Owe to Others */}
@@ -249,31 +300,31 @@ export const PersonalDashboard: React.FC = () => {
                         <div className="text-xs text-rose-700 dark:text-rose-300 font-medium">You owe</div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white">{debt.toUser?.name}</div>
                         <span className="text-[11px] text-slate-500 font-mono">
-                          UPI: {debt.toUser?.upiId || 'No UPI added'}
+                          @{debt.toUser?.username || 'member'}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-rose-100 dark:border-rose-900/30">
                       <div className="text-right">
-                        <span className="text-base font-black text-rose-600 dark:text-rose-400">
+                        <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
                           ₹{debt.amount.toLocaleString('en-IN')}
                         </span>
                       </div>
                       {debt.toUser && (
                         <button
-                          id={`pay-upi-btn-${debt.toUserId}`}
+                          id={`exchange-money-btn-${debt.toUserId}`}
                           onClick={() =>
-                            openUPIPayment({
+                            openMoneyExchange({
                               recipientUser: debt.toUser!,
                               amount: debt.amount,
-                              note: 'SplitMate bill settlement'
+                              note: 'Cash / direct handover money exchange'
                             })
                           }
-                          className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-100 dark:shadow-none flex items-center gap-1.5 transition-all"
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all"
                         >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Pay via UPI</span>
+                          <HeartHandshake className="w-3.5 h-3.5" />
+                          <span>Exchange & Agree</span>
                         </button>
                       )}
                     </div>
@@ -301,7 +352,7 @@ export const PersonalDashboard: React.FC = () => {
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-emerald-100 dark:border-emerald-900/30">
                       <div className="text-right">
-                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
                           ₹{debt.amount.toLocaleString('en-IN')}
                         </span>
                       </div>
@@ -317,7 +368,7 @@ export const PersonalDashboard: React.FC = () => {
                           className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm shadow-amber-500/30 flex items-center gap-1.5 transition-all"
                         >
                           <Send className="w-3.5 h-3.5" />
-                          <span>Send Reminder</span>
+                          <span>Honesty Reminder</span>
                         </button>
                       )}
                     </div>
@@ -549,11 +600,11 @@ export const PersonalDashboard: React.FC = () => {
               <span className="text-xs font-bold tracking-wider uppercase">Smart Student Insights</span>
             </div>
             <p className="text-xs text-indigo-100 leading-relaxed">
-              💡 <span className="font-semibold text-white">Domino's Pizza & Canteen</span> was your top expense this week. Settle group dues via UPI before month-end to avoid pending balances!
+              💡 <span className="font-semibold text-white">Domino's Pizza & Canteen</span> was your top expense this week. Settle group dues via money exchange and confirm honesty to keep balances accurate!
             </p>
             <div className="mt-4 pt-3 border-t border-indigo-900/80 flex items-center justify-between text-[11px] text-indigo-300">
-              <span>UPI Deep-Link Enabled</span>
-              <span className="font-mono">100% Secure</span>
+              <span>Mutual Honesty Agreement</span>
+              <span className="font-mono">100% Verified</span>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 {
   "name": "SplitMate - Student Expense & OCR Bill Splitter",
-  "description": "Smart student expense tracking, group bill splitting, and AI OCR receipt parsing with UPI settlement reminders.",
+  "description": "Smart student expense tracking, group bill splitting, AI OCR receipt scanning, dual-account fast switching, and mutual honesty money exchange agreements.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

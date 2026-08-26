@@ -107,7 +107,7 @@ export const AuthView: React.FC = () => {
           </h1>
 
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            SplitMate gives students AI-powered receipt scanning, instant UPI debt settlement links, and real-time campus group bookkeeping powered by Supabase.
+            SplitMate gives students AI-powered receipt scanning, mutual honesty money exchange verification, and real-time campus group bookkeeping.
           </p>
 
           <div className="space-y-3 pt-2">
@@ -116,7 +116,7 @@ export const AuthView: React.FC = () => {
                 <Receipt className="w-4 h-4" />
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                AI OCR itemized receipt parser with tax & tip auto-allocation
+                AI OCR itemized receipt parser with live camera capture & auto-allocation
               </p>
             </div>
 
@@ -125,7 +125,7 @@ export const AuthView: React.FC = () => {
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                Instant UPI deep-linking (GPay, PhonePe, Paytm) with zero transaction cuts
+                Mutual honesty agreements for money exchanges with dual-party confirmation
               </p>
             </div>
 

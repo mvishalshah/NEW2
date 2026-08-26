@@ -27,7 +27,6 @@ export const initialUsers: User[] = [
     course: 'B.Tech Computer Science',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'rahul.sharma@okaxis',
     bio: 'Coding by night, splitting bills by day. Always ready for midnight Maggi!',
     createdAt: '2026-01-10T10:00:00.000Z',
   },
@@ -42,7 +41,6 @@ export const initialUsers: User[] = [
     course: 'B.Tech Computer Science',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'priya.patel@okhdfcbank',
     bio: 'Design enthusiast & coffee addict ☕',
     createdAt: '2026-01-12T11:30:00.000Z',
   },
@@ -57,7 +55,6 @@ export const initialUsers: User[] = [
     course: 'B.Tech Computer Science',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'aman.v@paytm',
     bio: 'Hostel 204 champion gamer 🎮',
     createdAt: '2026-01-15T09:00:00.000Z',
   },
@@ -72,7 +69,6 @@ export const initialUsers: User[] = [
     course: 'B.Tech IT',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'neha.gupta@ybl',
     bio: 'Event coordinator & food explorer',
     createdAt: '2026-01-18T14:20:00.000Z',
   },
@@ -87,7 +83,6 @@ export const initialUsers: User[] = [
     course: 'B.Tech Mechanical',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'rohan.mehra@icici',
     bio: 'Robotics club captain 🤖',
     createdAt: '2026-01-20T16:45:00.000Z',
   },
@@ -102,7 +97,6 @@ export const initialUsers: User[] = [
     course: 'B.Sc Economics',
     year: '2nd Year',
     city: 'New Delhi',
-    upiId: 'sneha.rao@upi',
     bio: 'Finance geek & debater',
     createdAt: '2026-02-01T12:00:00.000Z',
   }
@@ -338,7 +332,10 @@ export const initialSettlements: Settlement[] = [
     toUserId: 'user_rahul',
     amount: 300,
     status: 'completed',
-    paymentMethod: 'upi',
+    paymentMethod: 'money_exchange',
+    payerAgreed: true,
+    receiverAgreed: true,
+    completedAt: '2026-02-21T10:05:00.000Z',
     note: 'Settled for Domino’s Pizza part payment',
     createdAt: '2026-02-21T10:00:00.000Z',
     paidAt: '2026-02-21T10:05:00.000Z'
@@ -498,7 +495,6 @@ class DatabaseStore {
       course: 'B.Tech Engineering',
       year: '3rd Year',
       city: 'New Delhi',
-      upiId: `${username}@okaxis`,
       bio: 'Excited to track student expenses with SplitMate!',
       createdAt: new Date().toISOString()
     };
@@ -1008,21 +1004,27 @@ class DatabaseStore {
     fromUserId: string;
     toUserId: string;
     amount: number;
-    paymentMethod: 'upi' | 'cash' | 'other';
-    status: 'initiated' | 'completed';
+    paymentMethod?: Settlement['paymentMethod'];
+    status?: Settlement['status'];
+    payerAgreed?: boolean;
+    receiverAgreed?: boolean;
     note?: string;
   }): Settlement {
+    const isCompleted = data.status === 'completed' || (data.payerAgreed && data.receiverAgreed);
     const newSettlement: Settlement = {
       id: `set_${Date.now()}`,
       groupId: data.groupId,
       fromUserId: data.fromUserId,
       toUserId: data.toUserId,
       amount: Math.round(Number(data.amount) * 100) / 100,
-      paymentMethod: data.paymentMethod || 'upi',
-      status: data.status || 'initiated',
-      note: data.note || 'Settled via SplitMate UPI',
+      paymentMethod: data.paymentMethod || 'money_exchange',
+      status: isCompleted ? 'completed' : (data.status || 'awaiting_receiver'),
+      payerAgreed: data.payerAgreed ?? true,
+      receiverAgreed: data.receiverAgreed ?? false,
+      completedAt: isCompleted ? new Date().toISOString() : undefined,
+      note: data.note || 'Settled via SplitMate Mutual Honesty Agreement',
       createdAt: new Date().toISOString(),
-      paidAt: data.status === 'completed' ? new Date().toISOString() : undefined,
+      paidAt: isCompleted ? new Date().toISOString() : undefined,
       fromUser: this.getUser(data.fromUserId),
       toUser: this.getUser(data.toUserId)
     };
@@ -1038,7 +1040,7 @@ class DatabaseStore {
         groupId: data.groupId,
         userId: data.fromUserId,
         type: 'settlement_made',
-        content: `${data.status === 'completed' ? 'settled' : 'initiated payment of'} ₹${data.amount.toLocaleString('en-IN')} with ${toUser?.name || 'member'} via ${data.paymentMethod.toUpperCase()}`,
+        content: `${isCompleted ? 'settled' : 'initiated honesty exchange of'} ₹${data.amount.toLocaleString('en-IN')} with ${toUser?.name || 'member'}`,
         amount: data.amount,
         createdAt: new Date().toISOString(),
         user: fromUser ? { id: fromUser.id, name: fromUser.name, avatarUrl: fromUser.avatarUrl, username: fromUser.username } : undefined

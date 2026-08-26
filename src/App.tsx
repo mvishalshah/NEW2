@@ -2,6 +2,7 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext.js';
 import { Navbar } from './components/Navbar.js';
 import { BottomNav } from './components/BottomNav.js';
+import { LandingHomeView } from './components/LandingHomeView.js';
 import { PersonalDashboard } from './components/PersonalDashboard.js';
 import { ExpensesListView } from './components/ExpensesListView.js';
 import { GroupsList } from './components/GroupsList.js';
@@ -11,11 +12,12 @@ import { AnalyticsView } from './components/AnalyticsView.js';
 import { ProfileView } from './components/ProfileView.js';
 import { AuthView } from './components/AuthView.js';
 import { AddExpenseModal } from './components/AddExpenseModal.js';
-import { UPIPaymentModal } from './components/UPIPaymentModal.js';
+import { MoneyExchangeModal } from './components/MoneyExchangeModal.js';
 import { PaymentReminderModal } from './components/PaymentReminderModal.js';
 import { OnboardingModal } from './components/OnboardingModal.js';
 import { AuthModal } from './components/AuthModal.js';
 import { AuthGateView } from './components/AuthGateView.js';
+import { AccountSwitcherModal } from './components/AccountSwitcherModal.js';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
@@ -32,11 +34,19 @@ const MainLayout: React.FC = () => {
   } = useApp();
 
   const renderActiveView = () => {
-    // If not signed in and trying to access any non-home view, show AuthGateView
-    if (!currentUser && activeView !== 'dashboard' && activeView !== 'auth') {
+    // When not signed in:
+    if (!currentUser) {
+      if (activeView === 'auth') {
+        return <AuthView />;
+      }
+      if (activeView === 'dashboard') {
+        return <LandingHomeView />;
+      }
+      // For any direct feature attempt without login, show AuthGateView
       return <AuthGateView feature={activeView} />;
     }
 
+    // When signed in:
     switch (activeView) {
       case 'dashboard':
         return <PersonalDashboard />;
@@ -71,9 +81,10 @@ const MainLayout: React.FC = () => {
 
       {/* Global Modals */}
       <AddExpenseModal />
-      <UPIPaymentModal />
+      <MoneyExchangeModal />
       <PaymentReminderModal />
       <OnboardingModal />
+      <AccountSwitcherModal />
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={closeAuthModal}

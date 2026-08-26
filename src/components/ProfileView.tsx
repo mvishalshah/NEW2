@@ -37,7 +37,6 @@ export const ProfileView: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [name, setName] = useState(currentUser?.name || '');
-  const [upiId, setUpiId] = useState(currentUser?.upiId || '');
   const [institution, setInstitution] = useState(currentUser?.institution || '');
   const [course, setCourse] = useState(currentUser?.course || '');
   const [yearOfStudy, setYearOfStudy] = useState(currentUser?.yearOfStudy || '');
@@ -78,7 +77,6 @@ export const ProfileView: React.FC = () => {
     e.preventDefault();
     const ok = await updateProfile({
       name,
-      upiId,
       institution,
       course,
       yearOfStudy,
@@ -96,10 +94,10 @@ export const ProfileView: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-indigo-600" />
-            <span>Student Profile & UPI ID</span>
+            <span>Student Profile & Identity</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Your student identity card, campus information, and settlement configurations
+            Your student identity card, campus information, and honesty verification settings
           </p>
         </div>
 
@@ -224,15 +222,15 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick UPI Pill */}
+          {/* Honesty Status Pill */}
           <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15 text-left sm:text-right space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-300 block">
-              Default UPI VPA
+            <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-300 block">
+              Honesty Status
             </span>
-            <span className="text-sm sm:text-base font-mono font-bold text-white block">
-              {currentUser?.upiId || 'No UPI ID Added'}
+            <span className="text-sm sm:text-base font-bold text-white flex items-center sm:justify-end gap-1.5">
+              <span>🤝 100% Mutual Honesty</span>
             </span>
-            <span className="text-[10px] text-slate-300">Ready for instant peer settlement</span>
+            <span className="text-[10px] text-slate-300">Requires dual confirmation on settlements</span>
           </div>
         </div>
 
@@ -287,14 +285,13 @@ export const ProfileView: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                UPI ID (e.g. yourname@okaxis, 9876543210@paytm)
+                City / Hostel
               </label>
               <input
                 type="text"
-                required
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
               />
             </div>
 
@@ -330,18 +327,6 @@ export const ProfileView: React.FC = () => {
                 type="text"
                 value={yearOfStudy}
                 onChange={(e) => setYearOfStudy(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                City / Hostel
-              </label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
                 className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
               />
             </div>

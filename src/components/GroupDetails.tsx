@@ -9,7 +9,7 @@ import {
   Share2,
   Users,
   Receipt,
-  CreditCard,
+  HeartHandshake,
   Send,
   Plus,
   Calendar,
@@ -30,7 +30,7 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
     groups,
     setActiveView,
     openAddExpenseModal,
-    openUPIPayment,
+    openMoneyExchange,
     openReminderModal,
     showToast,
     refreshAllData,
@@ -217,7 +217,7 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         {[
           { id: 'expenses', label: 'Expenses', icon: Receipt, count: groupData.expenses?.length },
-          { id: 'debts', label: 'Simplified Debts', icon: CreditCard, count: debts.length },
+          { id: 'debts', label: 'Simplified Debts', icon: HeartHandshake, count: debts.length },
           { id: 'members', label: 'Members', icon: Users, count: groupData.members?.length },
           { id: 'activity', label: 'Social Feed', icon: Activity, count: groupData.activities?.length }
         ].map((tab) => {
@@ -271,9 +271,9 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
             </div>
           ) : (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-              {groupData.expenses.map((exp: Expense) => {
+              {(groupData.expenses || []).map((exp: Expense) => {
                 const payer = allUsers.find((u) => u.id === exp.paidBy);
-                const userPart = exp.participants.find((p) => p.userId === currentUser?.id);
+                const userPart = (exp.participants || []).find((p) => p.userId === currentUser?.id);
                 const isPayer = exp.paidBy === currentUser?.id;
 
                 return (
@@ -348,7 +348,7 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
         </div>
       )}
 
-      {/* TAB CONTENT: Simplified Debts & UPI Settle */}
+      {/* TAB CONTENT: Simplified Debts & Honesty Settle */}
       {activeTab === 'debts' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -403,17 +403,17 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
                       {isMePayer && d.toUser && (
                         <button
                           onClick={() =>
-                            openUPIPayment({
+                            openMoneyExchange({
                               recipientUser: d.toUser!,
                               amount: d.amount,
                               groupId: groupData.id,
-                              note: `SplitMate settlement for ${groupData.name}`
+                              note: `Money exchange settlement for ${groupData.name}`
                             })
                           }
-                          className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-100 dark:shadow-none flex items-center gap-1.5"
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all"
                         >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Pay via UPI</span>
+                          <HeartHandshake className="w-3.5 h-3.5" />
+                          <span>Exchange & Agree</span>
                         </button>
                       )}
 
@@ -426,10 +426,10 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
                               groupId: groupData.id
                             })
                           }
-                          className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm flex items-center gap-1.5"
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all"
                         >
                           <Send className="w-3.5 h-3.5" />
-                          <span>Send Reminder</span>
+                          <span>Honesty Reminder</span>
                         </button>
                       )}
                     </div>
@@ -470,7 +470,7 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
                         )}
                       </div>
                       <p className="text-xs text-slate-500 font-mono">
-                        UPI: {u?.upiId || 'Not set'} • {u?.institution || 'Student'}
+                        @{u?.username || 'member'} • {u?.institution || 'Student'}
                       </p>
                     </div>
                   </div>
@@ -501,7 +501,7 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {groupData.activities.map((act: GroupActivity) => {
+              {(groupData.activities || []).map((act: GroupActivity) => {
                 const actUser = allUsers.find((u) => u.id === act.userId);
                 return (
                   <div key={act.id} className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start gap-3">

@@ -23,8 +23,8 @@ export const initialUsers: User[] = [
     course: 'B.Tech Computer Science',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'rahul.sharma@okaxis',
     bio: 'Coding by night, splitting bills by day. Always ready for midnight Maggi!',
+    honestyScore: 99,
     createdAt: '2026-01-10T10:00:00.000Z',
   },
   {
@@ -38,8 +38,8 @@ export const initialUsers: User[] = [
     course: 'B.Tech Computer Science',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'priya.patel@okhdfcbank',
     bio: 'Design enthusiast & coffee addict ☕',
+    honestyScore: 100,
     createdAt: '2026-01-12T11:30:00.000Z',
   },
   {
@@ -53,8 +53,8 @@ export const initialUsers: User[] = [
     course: 'B.Tech Computer Science',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'aman.v@paytm',
     bio: 'Hostel 204 champion gamer 🎮',
+    honestyScore: 98,
     createdAt: '2026-01-15T09:00:00.000Z',
   },
   {
@@ -68,8 +68,8 @@ export const initialUsers: User[] = [
     course: 'B.Tech IT',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'neha.gupta@ybl',
     bio: 'Event coordinator & food explorer',
+    honestyScore: 100,
     createdAt: '2026-01-18T14:20:00.000Z',
   },
   {
@@ -83,8 +83,8 @@ export const initialUsers: User[] = [
     course: 'B.Tech Mechanical',
     year: '3rd Year',
     city: 'New Delhi',
-    upiId: 'rohan.mehra@icici',
     bio: 'Robotics club captain 🤖',
+    honestyScore: 97,
     createdAt: '2026-01-20T16:45:00.000Z',
   },
   {
@@ -98,8 +98,8 @@ export const initialUsers: User[] = [
     course: 'B.Sc Economics',
     year: '2nd Year',
     city: 'New Delhi',
-    upiId: 'sneha.rao@upi',
     bio: 'Finance geek & debater',
+    honestyScore: 100,
     createdAt: '2026-02-01T12:00:00.000Z',
   }
 ];
@@ -325,10 +325,31 @@ export const initialSettlements: Settlement[] = [
     toUserId: 'user_rahul',
     amount: 300,
     status: 'completed',
-    paymentMethod: 'upi',
+    paymentMethod: 'money_exchange',
+    payerAgreed: true,
+    payerAgreedAt: '2026-02-21T10:00:00.000Z',
+    receiverAgreed: true,
+    receiverAgreedAt: '2026-02-21T10:05:00.000Z',
+    honestyDeclaration: 'Mutual honesty verified: Cash exchange confirmed by both members.',
     note: 'Settled for Domino’s Pizza part payment',
     createdAt: '2026-02-21T10:00:00.000Z',
-    paidAt: '2026-02-21T10:05:00.000Z'
+    paidAt: '2026-02-21T10:05:00.000Z',
+    completedAt: '2026-02-21T10:05:00.000Z'
+  },
+  {
+    id: 'set_pending_1',
+    groupId: 'grp_cse_3rd',
+    fromUserId: 'user_priya',
+    toUserId: 'user_rahul',
+    amount: 170,
+    status: 'awaiting_receiver',
+    paymentMethod: 'money_exchange',
+    payerAgreed: true,
+    payerAgreedAt: '2026-02-24T09:00:00.000Z',
+    receiverAgreed: false,
+    honestyDeclaration: 'Priya handed over ₹170 cash and signed honesty pledge. Awaiting Rahul agreement.',
+    note: 'OS Xerox Notes copy cash handover',
+    createdAt: '2026-02-24T09:00:00.000Z'
   }
 ];
 
@@ -336,11 +357,11 @@ export const initialNotifications: AppNotification[] = [
   {
     id: 'notif_1',
     userId: 'user_rahul',
-    type: 'payment_reminder',
-    title: 'Payment Reminder from Priya',
-    message: 'Priya sent a friendly reminder for ₹170 (OS Xerox)',
+    type: 'honesty_agreement_request',
+    title: 'Honesty Agreement Request: Priya',
+    message: 'Priya confirmed handing over ₹170 for OS Xerox. Please click "Agree" to confirm honesty and complete settlement.',
     read: false,
-    data: { amount: 170, fromUserId: 'user_priya', groupId: 'grp_cse_3rd' },
+    data: { amount: 170, fromUserId: 'user_priya', settlementId: 'set_pending_1', groupId: 'grp_cse_3rd' },
     createdAt: '2026-02-24T09:00:00.000Z'
   },
   {
@@ -356,9 +377,9 @@ export const initialNotifications: AppNotification[] = [
   {
     id: 'notif_3',
     userId: 'user_rahul',
-    type: 'settlement_confirmed',
-    title: 'Settlement Confirmed 🎉',
-    message: 'Aman paid ₹300 via UPI for Domino’s Pizza',
+    type: 'honesty_confirmed',
+    title: 'Money Exchange Verified 🤝',
+    message: 'Aman & Rahul mutually agreed on ₹300 money exchange for Domino’s Pizza.',
     read: true,
     data: { amount: 300, fromUserId: 'user_aman' },
     createdAt: '2026-02-21T10:05:00.000Z'
@@ -366,34 +387,40 @@ export const initialNotifications: AppNotification[] = [
 ];
 
 // Calculation Helpers for client-side execution when offline / on GitHub Pages
-export function calculateDebtsClient(expenses: Expense[], settlements: Settlement[], groupId?: string): DebtEdge[] {
+export function calculateDebtsClient(expenses: Expense[] = [], settlements: Settlement[] = [], groupId?: string): DebtEdge[] {
   const netBalances: Record<string, number> = {};
 
-  const filteredExpenses = groupId ? expenses.filter((e) => e.groupId === groupId) : expenses;
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeSettlements = Array.isArray(settlements) ? settlements : [];
+
+  const filteredExpenses = groupId ? safeExpenses.filter((e) => e && e.groupId === groupId) : safeExpenses;
   const filteredSettlements = groupId
-    ? settlements.filter((s) => s.groupId === groupId && s.status === 'completed')
-    : settlements.filter((s) => s.status === 'completed');
+    ? safeSettlements.filter((s) => s && s.groupId === groupId && s.status === 'completed')
+    : safeSettlements.filter((s) => s && s.status === 'completed');
 
   filteredExpenses.forEach((exp) => {
+    if (!exp) return;
     const paidBy = exp.paidBy;
-    const total = exp.amount;
+    const total = exp.amount || 0;
     netBalances[paidBy] = (netBalances[paidBy] || 0) + total;
 
-    exp.participants.forEach((part) => {
-      netBalances[part.userId] = (netBalances[part.userId] || 0) - part.shareAmount;
+    (exp.participants || []).forEach((part) => {
+      if (!part) return;
+      netBalances[part.userId] = (netBalances[part.userId] || 0) - (part.shareAmount || 0);
     });
   });
 
   filteredSettlements.forEach((set) => {
-    netBalances[set.fromUserId] = (netBalances[set.fromUserId] || 0) + set.amount;
-    netBalances[set.toUserId] = (netBalances[set.toUserId] || 0) - set.amount;
+    if (!set) return;
+    netBalances[set.fromUserId] = (netBalances[set.fromUserId] || 0) + (set.amount || 0);
+    netBalances[set.toUserId] = (netBalances[set.toUserId] || 0) - (set.amount || 0);
   });
 
   const debtors: Array<{ userId: string; amount: number }> = [];
   const creditors: Array<{ userId: string; amount: number }> = [];
 
   Object.entries(netBalances).forEach(([userId, balance]) => {
-    const rounded = Math.round(balance * 100) / 100;
+    const rounded = Math.round((balance || 0) * 100) / 100;
     if (rounded < -0.5) {
       debtors.push({ userId, amount: -rounded });
     } else if (rounded > 0.5) {
@@ -433,8 +460,8 @@ export function calculateDebtsClient(expenses: Expense[], settlements: Settlemen
 
 export function calculateFinancialSummaryClient(
   userId: string,
-  expenses: Expense[],
-  settlements: Settlement[]
+  expenses: Expense[] = [],
+  settlements: Settlement[] = []
 ): UserFinancialSummary {
   let totalSpending = 0;
   let youPaid = 0;
@@ -442,26 +469,31 @@ export function calculateFinancialSummaryClient(
   let youOwe = 0;
   const categoryMap: Record<string, number> = {};
 
-  const debts = calculateDebtsClient(expenses, settlements);
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeSettlements = Array.isArray(settlements) ? settlements : [];
 
-  debts.forEach((d) => {
+  const debts = calculateDebtsClient(safeExpenses, safeSettlements);
+
+  (debts || []).forEach((d) => {
+    if (!d) return;
     if (d.fromUserId === userId) {
-      youOwe += d.amount;
+      youOwe += (d.amount || 0);
     }
     if (d.toUserId === userId) {
-      youAreOwed += d.amount;
+      youAreOwed += (d.amount || 0);
     }
   });
 
-  expenses.forEach((e) => {
+  safeExpenses.forEach((e) => {
+    if (!e) return;
     if (e.paidBy === userId) {
-      youPaid += e.amount;
+      youPaid += (e.amount || 0);
     }
-    const part = e.participants.find((p) => p.userId === userId);
+    const part = (e.participants || []).find((p) => p && p.userId === userId);
     if (part) {
-      totalSpending += part.shareAmount;
+      totalSpending += (part.shareAmount || 0);
       const cat = e.category || 'Other';
-      categoryMap[cat] = (categoryMap[cat] || 0) + part.shareAmount;
+      categoryMap[cat] = (categoryMap[cat] || 0) + (part.shareAmount || 0);
     }
   });
 

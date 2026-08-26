@@ -12,8 +12,8 @@ export interface User {
   year: string;
   yearOfStudy?: string;
   city: string;
-  upiId?: string;
   bio?: string;
+  honestyScore?: number;
   createdAt: string;
 }
 
@@ -107,14 +107,20 @@ export interface Expense {
 export interface Settlement {
   id: string;
   groupId?: string;
-  fromUserId: string;
-  toUserId: string;
+  fromUserId: string; // Payer: person handing over money / owing
+  toUserId: string; // Payee: person receiving money
   amount: number;
-  status: 'pending' | 'initiated' | 'completed' | 'rejected';
-  paymentMethod: 'upi' | 'cash' | 'other';
+  status: 'pending' | 'awaiting_receiver' | 'awaiting_payer' | 'completed' | 'rejected';
+  paymentMethod: 'cash' | 'direct' | 'bank_transfer' | 'money_exchange';
   note?: string;
+  payerAgreed: boolean; // Payer clicked "Agree to Confirm Honesty"
+  payerAgreedAt?: string;
+  receiverAgreed: boolean; // Receiver clicked "Agree to Confirm Honesty"
+  receiverAgreedAt?: string;
+  honestyDeclaration?: string;
   createdAt: string;
   paidAt?: string;
+  completedAt?: string;
   fromUser?: User;
   toUser?: User;
 }
@@ -127,8 +133,10 @@ export interface PaymentReminder {
   amount: number;
   note?: string;
   sentAt: string;
-  cooldownUntil: string;
+  cooldownUntil?: string;
   status: 'sent' | 'seen' | 'settled';
+  honestyAgreedBySender?: boolean;
+  honestyAgreedByReceiver?: boolean;
   sender?: User;
   receiver?: User;
 }
@@ -142,6 +150,8 @@ export interface AppNotification {
     | 'new_expense'
     | 'expense_updated'
     | 'payment_reminder'
+    | 'honesty_agreement_request'
+    | 'honesty_confirmed'
     | 'settlement_initiated'
     | 'settlement_confirmed'
     | 'ocr_complete';

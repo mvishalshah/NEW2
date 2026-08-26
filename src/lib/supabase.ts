@@ -138,7 +138,6 @@ export async function fetchProfileFromSupabase(userId: string): Promise<User | n
       course: data.course || 'B.Tech Engineering',
       year: data.year || '3rd Year',
       city: data.city || 'New Delhi',
-      upiId: data.upi_id,
       bio: data.bio,
       createdAt: data.created_at
     };
@@ -161,7 +160,6 @@ export async function upsertProfileToSupabase(user: User): Promise<boolean> {
       course: user.course,
       year: user.year,
       city: user.city,
-      upi_id: user.upiId,
       bio: user.bio,
       updated_at: new Date().toISOString()
     });
@@ -305,7 +303,10 @@ export async function fetchSettlementsFromSupabase(): Promise<Settlement[]> {
       toUserId: s.to_user_id,
       amount: Number(s.amount),
       status: s.status,
-      paymentMethod: s.payment_method,
+      paymentMethod: s.payment_method || 'money_exchange',
+      payerAgreed: s.payer_agreed ?? (s.status === 'completed'),
+      receiverAgreed: s.receiver_agreed ?? (s.status === 'completed'),
+      completedAt: s.completed_at || s.paid_at,
       note: s.note,
       createdAt: s.created_at,
       paidAt: s.paid_at
@@ -326,6 +327,9 @@ export async function insertSettlementToSupabase(settlement: Settlement): Promis
       amount: settlement.amount,
       status: settlement.status,
       payment_method: settlement.paymentMethod,
+      payer_agreed: settlement.payerAgreed,
+      receiver_agreed: settlement.receiverAgreed,
+      completed_at: settlement.completedAt || settlement.paidAt,
       note: settlement.note,
       created_at: settlement.createdAt,
       paid_at: settlement.paidAt

@@ -82,7 +82,7 @@ export const AnalyticsView: React.FC = () => {
           <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">
             94.8%
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Fast UPI settlement average</p>
+          <p className="text-[11px] text-slate-400 mt-1">Mutual honesty agreement rate</p>
         </div>
       </div>
 

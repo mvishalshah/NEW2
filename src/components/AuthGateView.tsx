@@ -27,7 +27,7 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ feature = 'this feat
     },
     'group-detail': {
       title: 'Group Ledger & Settle Up',
-      description: 'Manage itemized group expenses and settle debts directly via UPI.',
+      description: 'Manage itemized group expenses and settle debts with mutual honesty agreements.',
       icon: Users
     },
     expenses: {
@@ -46,20 +46,20 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ feature = 'this feat
       icon: CreditCard
     },
     profile: {
-      title: 'Student Profile & UPI ID',
-      description: 'Configure your UPI VPA, QR code, avatar, and college details for instant settlements.',
+      title: 'Student Profile & Settings',
+      description: 'Configure your college details, degree major, avatar, and account preferences.',
       icon: GraduationCap
     },
     notifications: {
       title: 'Payment Alerts & Due Reminders',
-      description: 'Receive real-time notifications when roommates settle debts or send reminders.',
+      description: 'Receive real-time notifications when roommates settle debts or send honesty agreements.',
       icon: ShieldCheck
     }
   };
 
   const featureInfo = featureLabels[feature] || {
     title: 'Student Expense Tracking Tools',
-    description: 'Track campus bills, scan receipts with AI OCR, and settle via UPI.',
+    description: 'Track campus bills, scan receipts with AI OCR, and settle via mutual honesty agreements.',
     icon: Lock
   };
 
@@ -107,11 +107,11 @@ export const AuthGateView: React.FC<AuthGateViewProps> = ({ feature = 'this feat
 
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 flex items-start gap-3">
             <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <CreditCard className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-3.5 h-3.5" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white">Instant UPI Deep-Links</h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Settle with GPay, PhonePe, and Paytm with zero cuts.</p>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">Mutual Honesty Agreement</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Both payer and receiver agree to confirm exchanges.</p>
             </div>
           </div>
 
