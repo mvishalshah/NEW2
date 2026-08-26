@@ -27,6 +27,7 @@ export const Navbar: React.FC = () => {
     activeView,
     setActiveView,
     openAddExpenseModal,
+    openAuthModal,
     notifications,
     unreadNotificationCount,
     markNotificationRead,
@@ -329,6 +330,19 @@ export const Navbar: React.FC = () => {
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800 px-2 space-y-1">
                       <button
                         onClick={() => {
+                          openAuthModal('signin');
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-indigo-500" />
+                          <span>Supabase Sign In / Sign Up</span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 font-bold">Auth</span>
+                      </button>
+                      <button
+                        onClick={() => {
                           setActiveView('profile');
                           setIsUserMenuOpen(false);
                         }}
@@ -336,16 +350,6 @@ export const Navbar: React.FC = () => {
                       >
                         <UserIcon className="w-4 h-4 text-slate-500" />
                         <span>View Full Profile & UPI</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          googleLogin();
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors"
-                      >
-                        <Sparkles className="w-4 h-4 text-indigo-500" />
-                        <span>Sign In with New Google Profile</span>
                       </button>
                     </div>
                   </div>

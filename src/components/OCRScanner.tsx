@@ -29,21 +29,24 @@ interface OCRScannerProps {
     splitMethod: 'item_based';
     items: OCRItem[];
     participants: Array<{ userId: string; shareAmount: number }>;
+    receiptUrl?: string;
   }) => void;
   onCancel: () => void;
   defaultGroupId?: string;
 }
 
 export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, defaultGroupId }) => {
-  const { groups, allUsers, currentUser, showToast } = useApp();
+  const { groups, allUsers, currentUser, uploadReceipt, showToast } = useApp();
 
   const [step, setStep] = useState<'upload' | 'scanning' | 'review' | 'assign'>('upload');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRReceiptResult | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string>(defaultGroupId || groups[0]?.id || '');
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUser?.id || '');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [scanStatusText, setScanStatusText] = useState<string>('Uploading receipt...');
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -117,9 +120,16 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Asynchronously upload to Supabase storage receipts bucket
+      uploadReceipt(file).then(({ url }) => {
+        if (url) {
+          setUploadedReceiptUrl(url);
+        }
+      });
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
@@ -129,6 +139,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       reader.readAsDataURL(file);
     }
   };
+
 
   const handleSampleReceipt = (key: 'cafe' | 'groceries' | 'stationery') => {
     processImageOCR(undefined, key);
@@ -254,8 +265,10 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       paidBy: paidByUserId || currentUser?.id || '',
       splitMethod: 'item_based',
       items: ocrResult.items,
-      participants: calculatedParticipants
+      participants: calculatedParticipants,
+      receiptUrl: uploadedReceiptUrl || undefined
     });
+
   };
 
   return (

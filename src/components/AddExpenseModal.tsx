@@ -26,9 +26,11 @@ export const AddExpenseModal: React.FC = () => {
     allUsers,
     currentUser,
     selectedGroupId: contextGroupId,
+    addExpense,
     refreshAllData,
     showToast
   } = useApp();
+
 
   const [mode, setMode] = useState<'manual' | 'ocr'>(initialAddExpenseMode || 'manual');
 
@@ -74,24 +76,16 @@ export const AddExpenseModal: React.FC = () => {
   // Handle OCR Completion
   const handleOCRComplete = async (data: any) => {
     try {
-      const res = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          source: 'ocr'
-        })
+      const saved = await addExpense({
+        ...data,
+        source: 'ocr'
       });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`Expense "${data.title}" saved from OCR receipt! 🧾`, 'success');
+      if (saved) {
         await refreshAllData();
         closeAddExpenseModal();
-      } else {
-        showToast(json.error || 'Failed to save expense', 'error');
       }
     } catch (err) {
-      showToast('Server error saving expense', 'error');
+      showToast('Error saving OCR expense', 'error');
     }
   };
 
@@ -148,36 +142,29 @@ export const AddExpenseModal: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          amount: numAmount,
-          category,
-          date,
-          description,
-          groupId: groupId || undefined,
-          paidBy: paidBy || currentUser?.id,
-          source: 'manual',
-          splitMethod,
-          items: splitMethod === 'item_based' ? manualItems : undefined,
-          participants: participantsPayload
-        })
+      const saved = await addExpense({
+        title,
+        amount: numAmount,
+        category,
+        date,
+        description,
+        groupId: groupId || undefined,
+        paidBy: paidBy || currentUser?.id,
+        source: 'manual',
+        splitMethod,
+        items: splitMethod === 'item_based' ? manualItems : undefined,
+        participants: participantsPayload
       });
 
-      const json = await res.json();
-      if (json.success) {
-        showToast(`Expense "${title}" added successfully! 🎉`, 'success');
+      if (saved) {
         await refreshAllData();
         closeAddExpenseModal();
-      } else {
-        showToast(json.error || 'Failed to add expense', 'error');
       }
     } catch (err) {
-      showToast('Server error adding expense', 'error');
+      showToast('Error saving expense', 'error');
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">

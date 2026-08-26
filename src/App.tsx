@@ -9,14 +9,25 @@ import { GroupDetails } from './components/GroupDetails.js';
 import { DiscoverGroups } from './components/DiscoverGroups.js';
 import { AnalyticsView } from './components/AnalyticsView.js';
 import { ProfileView } from './components/ProfileView.js';
+import { AuthView } from './components/AuthView.js';
 import { AddExpenseModal } from './components/AddExpenseModal.js';
 import { UPIPaymentModal } from './components/UPIPaymentModal.js';
 import { PaymentReminderModal } from './components/PaymentReminderModal.js';
 import { OnboardingModal } from './components/OnboardingModal.js';
+import { AuthModal } from './components/AuthModal.js';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const { activeView, selectedGroupId, toasts, removeToast, groups } = useApp();
+  const {
+    activeView,
+    selectedGroupId,
+    toasts,
+    removeToast,
+    groups,
+    isAuthModalOpen,
+    authModalMode,
+    closeAuthModal
+  } = useApp();
 
   const renderActiveView = () => {
     switch (activeView) {
@@ -34,6 +45,8 @@ const MainLayout: React.FC = () => {
         return <AnalyticsView />;
       case 'profile':
         return <ProfileView />;
+      case 'auth':
+        return <AuthView />;
       default:
         return <PersonalDashboard />;
     }
@@ -54,6 +67,11 @@ const MainLayout: React.FC = () => {
       <UPIPaymentModal />
       <PaymentReminderModal />
       <OnboardingModal />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+        initialMode={authModalMode}
+      />
 
       {/* Floating Toast Notifications */}
       {toasts.length > 0 && (
