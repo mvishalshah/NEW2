@@ -130,40 +130,11 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `You are an expert Optical Character Recognition (OCR) and financial document vision parser for SmartSplitMate, a modern smart expense & bill-splitting application for groups, roommates, and teams.
-
-Your task is to analyze the provided image with MAXIMUM VISION ACCURACY and document understanding. The image can be:
-1. **Restaurant / Cafe / Canteen Bills**: Thermal receipts, printed KOTs, printed table invoices with Food items, Quantity, Rate, Amount, Subtotal, CGST, SGST, Service Charges, Discounts, Round off, Grand Total.
-2. **Grocery & Supermarket Receipts**: Store receipts (e.g., Hostel mart, D-Mart, Reliance, local Kirana) with packaged goods, dairy, snacks, toiletries.
-3. **Stationery, Xerox & Book Depot Receipts**: Printing charges, spiral binding, xerox copies, practical record books, pens, notebooks.
-4. **UPI Payment Confirmation Screenshots**: Google Pay (GPay), PhonePe, Paytm, BHIM UPI, Cred, Navi, Amazon Pay, showing "Paid to [Merchant/Person]", "₹ Amount", "UPI Transaction ID / UTR", "Date & Time".
-5. **Digital App Delivery Invoices**: Swiggy, Zomato, Blinkit, Zepto, Instamart, Amazon, Flipkart order summaries.
-6. **Handwritten Mess / Canteen Chits**: Hand-written meal chits, room tally slips, or mess coupon lists.
-
-CRITICAL VISION & EXTRACTION INSTRUCTIONS:
-- **Image Orientation & Rotation**: The image may be captured at 90°, 180°, or 270° angle. Detect the orientation and parse all text accurately regardless of rotation.
-- **Merchant / Store / Payee Name**: Extract the exact business or person name from header or transaction title (e.g., "Madras Cafe", "Hostel 3 Mess", "Aarav Sharma", "Blinkit Commerce").
-- **Date**: Extract in YYYY-MM-DD format. If only DD/MM is printed, assume year 2026. If date is not visible, use current date.
-- **Receipt / Transaction ID**: Extract Bill No, Invoice No, Token No, or UPI Reference / UTR ID.
-- **Line Items Extraction (Crucial for Bill Splitting)**:
-  - Extract EVERY distinct item listed.
-  - 'name': Clear, readable full item name (e.g. "Paneer Tikka Sandwich", "Engineering Drawing Spiral Notes", "Amul Taaza Milk 1L"). Expand common abbreviations if obvious (e.g., "Sandw" -> "Sandwich", "Cff" -> "Coffee").
-  - 'quantity': The number of units (default 1 if not specified).
-  - 'unitPrice': Price per unit in INR (₹).
-  - 'totalPrice': Row total (quantity * unitPrice).
-  - 'confidence': "high" if clear and legible, "medium" if slightly faded/blurry, "verify" if uncertain.
-  - For UPI screenshots (single payment): Create 1 line item with name: the transaction note, merchant or "UPI Payment Transfer", quantity: 1, totalPrice: full paid amount.
-- **Mathematical Calibration**:
-  - 'subtotal': Sum of all line item totals before taxes and discounts.
-  - 'tax': Total GST / VAT / CGST + SGST amount.
-  - 'discount': Total promo / coupon / discount deducted.
-  - 'serviceCharge': Packaging, delivery, platform, or service fee.
-  - 'roundOff': Any fractional rounding difference.
-  - 'total': Grand total amount in INR (₹). Ensure it reflects the bottom-line payable amount.
-- **Category Classification**: 'Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'.
-- **Verbatim Raw Text Transcript**: Include complete readable text in 'rawText'.
-
-Return purely valid JSON matching the exact schema.`;
+    const promptText = `Please extract all OCR text, receipt items, merchant information, dates, monetary amounts, and structured line items from this document according to your strict OCR instructions.
+- Preserve tabular data accurately.
+- Extract merchant name, date, receipt/invoice/UTR number, line items (item name, quantity, unit price, total price), subtotal, tax, discount, service charge, round off, and grand total.
+- If any text or number is illegible, use '[UNREADABLE]'.
+- Return purely valid JSON adhering to the provided schema.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.7-flash',
@@ -174,6 +145,7 @@ Return purely valid JSON matching the exact schema.`;
         ]
       },
       config: {
+        systemInstruction: "You are a strict, highly accurate OCR data extraction engine. Your sole task is to extract text exactly as it appears in the provided document. Do not summarize, guess, or hallucinate missing information. Preserve all tabular data using Markdown tables. If any text is completely illegible, output the exact word '[UNREADABLE]'.",
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
