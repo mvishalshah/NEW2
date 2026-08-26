@@ -176,9 +176,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isSupabaseConnected = isSupabaseConfigured();
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('splitmate_dark_mode') === 'true';
+      const stored = localStorage.getItem('splitmate_dark_mode');
+      if (stored !== null) {
+        return stored === 'true';
+      }
+      return true; // Primary default is dark mode
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -1249,7 +1253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         closeOnboarding
       }}
     >
-      <div className={darkMode ? 'dark bg-slate-950 text-slate-100 min-h-screen' : 'bg-slate-50 text-slate-900 min-h-screen'}>
+      <div className={darkMode ? 'dark bg-slate-950 text-slate-100 min-h-screen' : 'bg-white text-slate-900 min-h-screen'}>
         {children}
       </div>
     </AppContext.Provider>

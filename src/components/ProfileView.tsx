@@ -19,7 +19,9 @@ import {
   Database,
   Camera,
   LogOut,
-  Plus
+  Plus,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export const ProfileView: React.FC = () => {
@@ -30,6 +32,8 @@ export const ProfileView: React.FC = () => {
     logout,
     uploadAvatar,
     isSupabaseConnected,
+    darkMode,
+    toggleDarkMode,
     showToast
   } = useApp();
 
@@ -227,6 +231,55 @@ export const ProfileView: React.FC = () => {
           >
             <Sparkles className="w-4 h-4 text-indigo-200" />
             <span>Switch / Sign In</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Theme & Display Appearance Settings Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+            {darkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-amber-500" />}
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              Display Theme & Appearance
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Choose between dark mode (primary) and clean white light mode.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-700/80 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (!darkMode) toggleDarkMode();
+            }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              darkMode
+                ? 'bg-slate-900 text-white shadow-sm ring-1 ring-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Moon className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Dark Mode</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (darkMode) toggleDarkMode();
+            }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              !darkMode
+                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5 text-amber-500" />
+            <span>Light Mode</span>
           </button>
         </div>
       </div>
