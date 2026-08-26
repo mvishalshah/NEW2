@@ -769,7 +769,7 @@ export const LandingHomeView: React.FC = () => {
             Ready to Take the Stress Out of Shared Expenses?
           </h2>
           <p className="text-xs sm:text-sm text-indigo-100/90">
-            Join groups, roommates, colleagues, and friends tracking rent, meals, and trips with SmartSplitMate.
+            Join groups, roommates, colleagues, and friends tracking rent, meals, and trips with S.E.S.
           </p>
         </div>
 

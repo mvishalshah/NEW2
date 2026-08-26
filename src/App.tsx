@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext.js';
 import { supabase, isSupabaseConfigured } from './lib/supabase.js';
 import { Navbar } from './components/Navbar.js';
+import { Footer } from './components/Footer.js';
 import { BottomNav } from './components/BottomNav.js';
 import { LandingHomeView } from './components/LandingHomeView.js';
 import { PersonalDashboard } from './components/PersonalDashboard.js';
@@ -101,6 +102,8 @@ const MainLayout: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {renderActiveView()}
       </main>
+
+      <Footer />
 
       <BottomNav />
 
