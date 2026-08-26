@@ -181,6 +181,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     try {
       localStorage.setItem('splitmate_dark_mode', String(darkMode));
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+        document.body.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark');
+      }
     } catch {}
   }, [darkMode]);
 

@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext.js';
 import { Layers, Users, Plus, Compass, User as UserIcon } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
-  const { activeView, setActiveView, openAddExpenseModal } = useApp();
+  const { activeView, setActiveView, openAddExpenseModal, currentUser } = useApp();
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-3 py-2">
@@ -67,7 +67,19 @@ export const BottomNav: React.FC = () => {
               : 'text-slate-500 dark:text-slate-400'
           }`}
         >
-          <UserIcon className="w-5 h-5" />
+          <div className="relative">
+            {currentUser?.avatarUrl ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className={`w-5 h-5 rounded-full object-cover ring-1 ${
+                  activeView === 'profile' ? 'ring-indigo-600 dark:ring-indigo-400 ring-2' : 'ring-slate-300 dark:ring-slate-600'
+                }`}
+              />
+            ) : (
+              <UserIcon className="w-5 h-5" />
+            )}
+          </div>
           <span className="text-[10px]">Profile</span>
         </button>
       </div>

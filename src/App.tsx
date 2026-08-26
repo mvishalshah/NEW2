@@ -40,7 +40,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9FAFB] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-[#F9FAFB] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 w-full overflow-x-hidden">
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -56,33 +56,35 @@ const MainLayout: React.FC = () => {
       <OnboardingModal />
 
       {/* Floating Toast Notifications */}
-      <div className="fixed bottom-16 md:bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 text-xs font-semibold animate-in slide-in-from-bottom-3 duration-200 ${
-              toast.type === 'success'
-                ? 'bg-indigo-950 text-white border-indigo-800 shadow-indigo-950/20'
-                : toast.type === 'error'
-                ? 'bg-rose-600 text-white border-rose-500 shadow-rose-950/20'
-                : 'bg-slate-900 text-white border-slate-800 shadow-slate-950/20'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />}
-              {toast.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-200 shrink-0" />}
-              {toast.type === 'info' && <Info className="w-4 h-4 text-indigo-300 shrink-0" />}
-              <span>{toast.message}</span>
-            </div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="p-1 rounded-lg hover:bg-white/20 text-white/80 transition-colors"
+      {toasts.length > 0 && (
+        <div className="fixed bottom-16 md:bottom-5 right-4 sm:right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-[calc(100vw-2rem)] sm:w-auto">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 text-xs font-semibold animate-in slide-in-from-bottom-3 duration-200 ${
+                toast.type === 'success'
+                  ? 'bg-indigo-950 text-white border-indigo-800 shadow-indigo-950/20'
+                  : toast.type === 'error'
+                  ? 'bg-rose-600 text-white border-rose-500 shadow-rose-950/20'
+                  : 'bg-slate-900 text-white border-slate-800 shadow-slate-950/20'
+              }`}
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
+              <div className="flex items-center gap-2.5">
+                {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />}
+                {toast.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-200 shrink-0" />}
+                {toast.type === 'info' && <Info className="w-4 h-4 text-indigo-300 shrink-0" />}
+                <span>{toast.message}</span>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="p-1 rounded-lg hover:bg-white/20 text-white/80 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
