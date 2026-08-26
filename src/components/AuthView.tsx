@@ -26,10 +26,12 @@ export const AuthView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setInfoMessage(null);
 
     if (!email.trim() || !password.trim()) {
       setErrorMessage('Please enter both email and password.');
@@ -45,7 +47,7 @@ export const AuthView: React.FC = () => {
 
     try {
       if (mode === 'signup') {
-        // 1) Sign Up: Use supabase.auth.signUp({ email, password })
+        // Sign Up using Supabase Auth client
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
@@ -58,29 +60,44 @@ export const AuthView: React.FC = () => {
         });
 
         if (error) {
-          // 4) Add simple error handling: if supabase returns an error, show a small error message under the form
           setErrorMessage(error.message);
           return;
         }
 
-        // 3) After successful sign up redirect the user to Home page ("/")
+        // If data.session is null, don't redirect to dashboard
+        // Just show: "Check your email and confirm your account before logging in."
+        if (!data?.session) {
+          setInfoMessage('Check your email and confirm your account before logging in.');
+          showToast('Check your email and confirm your account before logging in.', 'info');
+          return;
+        }
+
+        // Only redirect when a real session exists after login
         showToast('Sign up successful! Welcome to SplitMate 🎓', 'success');
         window.history.pushState({}, '', '/');
         setActiveView('dashboard');
       } else {
-        // 2) Sign In: Use supabase.auth.signInWithPassword({ email, password })
+        // Sign In using Supabase Auth client
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password.trim()
         });
 
         if (error) {
-          // 4) Add simple error handling: if supabase returns an error, show a small error message under the form
-          setErrorMessage(error.message);
+          if (error.message.toLowerCase().includes('email not confirmed')) {
+            setErrorMessage('Check your email and confirm your account before logging in.');
+          } else {
+            setErrorMessage(error.message);
+          }
           return;
         }
 
-        // 3) After successful sign in redirect the user to Home page ("/")
+        // Only redirect when a real session exists after login
+        if (!data?.session) {
+          setErrorMessage('Check your email and confirm your account before logging in.');
+          return;
+        }
+
         showToast('Signed in successfully! Welcome back 👋', 'success');
         window.history.pushState({}, '', '/');
         setActiveView('dashboard');
@@ -298,7 +315,15 @@ export const AuthView: React.FC = () => {
                 </div>
               </div>
 
-              {/* 4) Simple Error Handling: If Supabase returns an error, show a small error message under the form */}
+              {/* Info Banner (e.g. Email Confirmation Notice) */}
+              {infoMessage && (
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/80 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200 font-medium animate-in fade-in">
+                  <Mail className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                  <span className="leading-snug">{infoMessage}</span>
+                </div>
+              )}
+
+              {/* Simple Error Handling: If Supabase returns an error, show a small error message under the form */}
               {errorMessage && (
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 flex items-start gap-2.5 text-xs text-rose-600 dark:text-rose-400 font-medium animate-in fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />

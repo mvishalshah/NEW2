@@ -403,12 +403,150 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const openAccountSwitcher = () => setIsAccountSwitcherOpen(true);
   const closeAccountSwitcher = () => setIsAccountSwitcherOpen(false);
 
-  const setActiveView = useCallback((view: AppContextType['activeView'], groupId?: string) => {
+  const setActiveView = useCallback(async (view: AppContextType['activeView'], groupId?: string) => {
+    const privateViews: AppContextType['activeView'][] = ['expenses', 'groups', 'group-detail', 'analytics', 'profile'];
+
+    // Protect private pages with supabase.auth.getSession()
+    if (privateViews.includes(view)) {
+      if (isSupabaseConfigured()) {
+        const { data } = await supabase.auth.getSession();
+        if (!data?.session) {
+          window.history.pushState({}, '', '/login');
+          setActiveViewState('auth');
+          setAuthModalMode('signin');
+          showToast('Check your email and confirm your account before logging in, or sign in now.', 'info');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      } else if (!currentUser) {
+        window.history.pushState({}, '', '/login');
+        setActiveViewState('auth');
+        setAuthModalMode('signin');
+        showToast('Please sign in to access your private account.', 'info');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
+    // Update URL bar
+    if (view === 'auth') {
+      window.history.pushState({}, '', '/login');
+    } else if (view === 'dashboard') {
+      window.history.pushState({}, '', '/');
+    } else if (view === 'discover') {
+      window.history.pushState({}, '', '/discover');
+    } else if (view === 'expenses') {
+      window.history.pushState({}, '', '/expenses');
+    } else if (view === 'groups') {
+      window.history.pushState({}, '', '/groups');
+    } else if (view === 'analytics') {
+      window.history.pushState({}, '', '/analytics');
+    } else if (view === 'profile') {
+      window.history.pushState({}, '', '/profile');
+    }
+
     setActiveViewState(view);
     if (groupId) {
       setSelectedGroupId(groupId);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentUser, showToast]);
+
+  // Initial Route & Supabase Session Check
+  useEffect(() => {
+    const checkInitialSessionAndRoute = async () => {
+      const path = window.location.pathname.toLowerCase();
+
+      if (isSupabaseConfigured()) {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session;
+
+        if (session?.user) {
+          const authUser = session.user;
+          let profile = await fetchProfileFromSupabase(authUser.id);
+          if (!profile) {
+            profile = {
+              id: authUser.id,
+              googleId: authUser.user_metadata?.sub || authUser.id,
+              name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Student',
+              username: (authUser.email?.split('@')[0] || `user_${Date.now()}`).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+              email: authUser.email || '',
+              avatarUrl: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+              institution: '',
+              course: '',
+              year: '',
+              yearOfStudy: '',
+              city: '',
+              address: '',
+              phone: '',
+              upiId: '',
+              bio: '',
+              createdAt: new Date().toISOString()
+            };
+            await upsertProfileToSupabase(profile);
+          }
+          setCurrentUser(profile);
+          setAllUsers((prev) => (prev.some((u) => u.id === profile!.id) ? prev.map((u) => (u.id === profile!.id ? profile! : u)) : [...prev, profile!]));
+
+          if (path === '/login' || path === '/signin' || path === '/signup' || path === '/register' || path === '/auth') {
+            window.history.pushState({}, '', '/');
+            setActiveViewState('dashboard');
+          } else if (path === '/discover') {
+            setActiveViewState('discover');
+          } else if (path === '/expenses') {
+            setActiveViewState('expenses');
+          } else if (path === '/groups') {
+            setActiveViewState('groups');
+          } else if (path === '/analytics') {
+            setActiveViewState('analytics');
+          } else if (path === '/profile') {
+            setActiveViewState('profile');
+          }
+        } else {
+          // No session
+          setCurrentUser(null);
+          try {
+            localStorage.removeItem('splitmate_current_user');
+          } catch {}
+
+          if (path === '/login' || path === '/signin' || path === '/auth') {
+            setActiveViewState('auth');
+            setAuthModalMode('signin');
+          } else if (path === '/signup' || path === '/register') {
+            setActiveViewState('auth');
+            setAuthModalMode('signup');
+          } else if (path === '/discover') {
+            setActiveViewState('discover');
+          } else if (['/expenses', '/groups', '/analytics', '/profile'].includes(path)) {
+            // Private page without session -> redirect to /login
+            window.history.pushState({}, '', '/login');
+            setActiveViewState('auth');
+            setAuthModalMode('signin');
+          } else {
+            setActiveViewState('dashboard');
+          }
+        }
+      } else {
+        if (path === '/login' || path === '/signin' || path === '/auth') {
+          setActiveViewState('auth');
+          setAuthModalMode('signin');
+        } else if (path === '/signup' || path === '/register') {
+          setActiveViewState('auth');
+          setAuthModalMode('signup');
+        } else if (path === '/discover') {
+          setActiveViewState('discover');
+        }
+      }
+    };
+
+    checkInitialSessionAndRoute();
+
+    const handlePopState = () => {
+      checkInitialSessionAndRoute();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Sync Supabase Auth session & Supabase Database
@@ -417,6 +555,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Listen to Supabase auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setCurrentUser(null);
+        try {
+          localStorage.removeItem('splitmate_current_user');
+        } catch {}
+        return;
+      }
+
       if (session?.user) {
         const authUser = session.user;
         let profile = await fetchProfileFromSupabase(authUser.id);
@@ -443,7 +589,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         setCurrentUser(profile);
         setAllUsers((prev) => (prev.some((u) => u.id === profile!.id) ? prev.map((u) => (u.id === profile!.id ? profile! : u)) : [...prev, profile!]));
-        showToast(`Authenticated as ${profile.name} via Supabase Google Auth! ✨`, 'success');
+        showToast(`Authenticated as ${profile.name}! 👋`, 'success');
       }
     });
 

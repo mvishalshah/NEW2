@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext.js';
+import { supabase, isSupabaseConfigured } from './lib/supabase.js';
 import { Navbar } from './components/Navbar.js';
 import { BottomNav } from './components/BottomNav.js';
 import { LandingHomeView } from './components/LandingHomeView.js';
@@ -30,8 +31,29 @@ const MainLayout: React.FC = () => {
     groups,
     isAuthModalOpen,
     authModalMode,
-    closeAuthModal
+    closeAuthModal,
+    setActiveView
   } = useApp();
+
+  // Guard private pages with supabase.auth.getSession() -> redirect to /login if no session
+  useEffect(() => {
+    const privateViews = ['expenses', 'groups', 'group-detail', 'analytics', 'profile'];
+    if (privateViews.includes(activeView)) {
+      const verifySession = async () => {
+        if (isSupabaseConfigured()) {
+          const { data } = await supabase.auth.getSession();
+          if (!data?.session) {
+            window.history.pushState({}, '', '/login');
+            setActiveView('auth');
+          }
+        } else if (!currentUser) {
+          window.history.pushState({}, '', '/login');
+          setActiveView('auth');
+        }
+      };
+      verifySession();
+    }
+  }, [activeView, currentUser, setActiveView]);
 
   const renderActiveView = () => {
     // When not signed in:
@@ -45,8 +67,8 @@ const MainLayout: React.FC = () => {
       if (activeView === 'discover') {
         return <DiscoverGroups />;
       }
-      // For any other private feature attempt without login, show AuthGateView
-      return <AuthGateView feature={activeView} />;
+      // For any other private feature attempt without session, redirect to /login (AuthView)
+      return <AuthView />;
     }
 
     // When signed in:
