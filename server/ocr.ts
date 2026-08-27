@@ -168,78 +168,53 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `Analyze this receipt, bill, invoice, or UPI payment screenshot with high precision.
-Extract all details exactly as visible in the image without hallucinating or inventing any items:
-- merchantName: The exact name of the store, restaurant, vendor, or recipient printed on the receipt.
-- date: The transaction date in YYYY-MM-DD format (if DD/MM/YYYY or DD-MM-YY is visible, convert accurately to YYYY-MM-DD; default to today's date if missing).
-- receiptNumber: Bill number, invoice #, token #, or UPI transaction ID/UTR if visible.
-- category: Appropriate category ('Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', or 'Other').
-- currency: 'INR' (or corresponding currency code).
-- items: Array of line items with exact name, quantity (number), unitPrice (number), totalPrice (number), and confidence ('high', 'medium', or 'verify').
-- subtotal: Sum of item amounts before tax/discounts.
-- discount: Any discount applied (0 if none).
-- tax: Total GST/tax amount (0 if none).
-- serviceCharge: Service/delivery charge (0 if none).
-- roundOff: Round off amount (0 if none).
-- total: The final grand total payable amount printed on the receipt.
-- confidenceOverall: 'high', 'medium', or 'low'.
-- rawText: A complete verbatim text transcript of the receipt.
-- upiRef: UPI UTR or reference number if present.
-
-If the image is a single transaction summary or UPI screenshot without itemized lines, create 1 item representing the total bill with the merchant description. Ensure all numbers are valid numerical values.`;
+    const promptText = `Analyze this receipt, grocery chit, bill, invoice, handwritten slip, or payment image with extreme precision.
+Extract each product/item name, quantity, unit price, and exact numerical line price.
+Also extract merchant name, date (YYYY-MM-DD), bill number, tax, discount, and grand total.
+If any value is missing or unreadable, use null for optional fields.
+Output ONLY structured JSON conforming strictly to the schema.`;
 
     let response: any;
-    let modelUsed = 'gemini-3.7-flash';
+    let modelUsed = 'gemini-2.5-flash';
 
-    try {
-      response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
-        contents: [
-          imagePart,
-          { text: promptText }
-        ],
-        config: {
-          systemInstruction: "You are a strict, highly accurate OCR receipt parsing engine. Extract all text and numerical values precisely from the image. Never invent items or prices. Return purely valid JSON adhering to the schema.",
-          responseMimeType: 'application/json',
-          responseSchema: {
+    const systemInstruction = "You are a rigid data extraction assistant. You only output valid JSON. You never explain your work. Your task is to analyze images of handwritten receipts, grocery chits, and invoices. Extract each item name and its exact numerical price. If data is missing or illegible, use null.";
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        merchantName: { type: Type.STRING, description: 'Store, vendor, merchant or recipient name' },
+        date: { type: Type.STRING, description: 'Date of transaction in YYYY-MM-DD format' },
+        receiptNumber: { type: Type.STRING, description: 'Bill or invoice reference number' },
+        category: { type: Type.STRING, description: 'Category e.g. Food, Groceries, Shopping, Hostel, Education, Transport' },
+        currency: { type: Type.STRING, description: 'Currency code e.g. INR' },
+        items: {
+          type: Type.ARRAY,
+          items: {
             type: Type.OBJECT,
             properties: {
-              merchantName: { type: Type.STRING, description: 'The merchant, cafe, store, or vendor name' },
-              date: { type: Type.STRING, description: 'Date of receipt in YYYY-MM-DD format' },
-              receiptNumber: { type: Type.STRING, description: 'Bill number, invoice number, or UPI UTR reference' },
-              category: { type: Type.STRING, description: 'Expense category e.g. Food, Hostel, Education, Shopping, Transport' },
-              currency: { type: Type.STRING, description: 'Currency code e.g. INR' },
-              items: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING, description: 'Line item description' },
-                    quantity: { type: Type.NUMBER, description: 'Quantity count' },
-                    unitPrice: { type: Type.NUMBER, description: 'Unit price in INR' },
-                    totalPrice: { type: Type.NUMBER, description: 'Line total price' },
-                    confidence: { type: Type.STRING, description: 'Confidence level: high, medium, or verify' }
-                  },
-                  required: ['name', 'quantity', 'unitPrice', 'totalPrice', 'confidence']
-                }
-              },
-              subtotal: { type: Type.NUMBER, description: 'Sum of items before tax/discounts' },
-              discount: { type: Type.NUMBER, description: 'Total discount amount' },
-              tax: { type: Type.NUMBER, description: 'Total tax/GST amount' },
-              serviceCharge: { type: Type.NUMBER, description: 'Packaging/service fee' },
-              roundOff: { type: Type.NUMBER, description: 'Round off adjustment' },
-              total: { type: Type.NUMBER, description: 'Grand total payable' },
-              confidenceOverall: { type: Type.STRING, description: 'Overall confidence: high, medium, or low' },
-              rawText: { type: Type.STRING, description: 'Verbatim transcript of legible text' },
-              upiRef: { type: Type.STRING, description: 'UPI UTR / Reference ID if present' }
+              name: { type: Type.STRING, description: 'Extracted product or line item name' },
+              quantity: { type: Type.NUMBER, description: 'Quantity count' },
+              unitPrice: { type: Type.NUMBER, description: 'Unit price' },
+              totalPrice: { type: Type.NUMBER, description: 'Exact numerical price for this item' },
+              confidence: { type: Type.STRING, description: 'Confidence level: high, medium, or verify' }
             },
-            required: ['merchantName', 'items', 'total']
+            required: ['name', 'quantity', 'unitPrice', 'totalPrice', 'confidence']
           }
-        }
-      });
-    } catch (primaryErr: any) {
-      console.warn('Gemini 3.7 Flash failed, attempting gemini-2.5-flash fallback:', primaryErr.message);
-      modelUsed = 'gemini-2.5-flash';
+        },
+        subtotal: { type: Type.NUMBER, description: 'Sum before taxes/discounts' },
+        discount: { type: Type.NUMBER, description: 'Discount applied' },
+        tax: { type: Type.NUMBER, description: 'GST or tax amount' },
+        serviceCharge: { type: Type.NUMBER, description: 'Service or delivery fee' },
+        roundOff: { type: Type.NUMBER, description: 'Round off adjustment' },
+        total: { type: Type.NUMBER, description: 'Exact final grand total price' },
+        confidenceOverall: { type: Type.STRING, description: 'high, medium, or low' },
+        rawText: { type: Type.STRING, description: 'Verbatim transcript of recognized text' },
+        upiRef: { type: Type.STRING, description: 'UPI reference or UTR if present' }
+      },
+      required: ['merchantName', 'items', 'total']
+    };
+
+    try {
       response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [
@@ -247,8 +222,24 @@ If the image is a single transaction summary or UPI screenshot without itemized 
           { text: promptText }
         ],
         config: {
-          systemInstruction: "You are a strict, highly accurate OCR receipt parsing engine. Extract all text and numerical values precisely from the image. Never invent items or prices. Return purely valid JSON adhering to the schema.",
-          responseMimeType: 'application/json'
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema
+        }
+      });
+    } catch (primaryErr: any) {
+      console.warn('gemini-2.5-flash call failed, attempting gemini-3.7-flash:', primaryErr.message);
+      modelUsed = 'gemini-3.7-flash';
+      response = await ai.models.generateContent({
+        model: 'gemini-3.7-flash',
+        contents: [
+          imagePart,
+          { text: promptText }
+        ],
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema
         }
       });
     }
