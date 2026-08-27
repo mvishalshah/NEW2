@@ -558,23 +558,14 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
-                <button
-                  id="nav-signin-btn"
-                  onClick={() => openAuthModal('signin')}
-                  className="h-9 px-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200/70 dark:border-slate-700/70"
-                >
-                  Sign In
-                </button>
-                <button
-                  id="nav-signup-btn"
-                  onClick={() => openAuthModal('signup')}
-                  className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs shadow-indigo-600/30 flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-                  <span>Sign Up</span>
-                </button>
-              </div>
+              <button
+                id="nav-auth-btn"
+                onClick={() => openAuthModal('signin')}
+                className="h-9 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 transition-all shadow-xs shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <UserIcon className="w-3.5 h-3.5 text-indigo-200" />
+                <span>Sign In / Sign Up</span>
+              </button>
             )}
           </div>
         </div>
