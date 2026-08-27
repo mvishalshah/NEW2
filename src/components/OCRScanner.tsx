@@ -181,17 +181,24 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
+    const video = videoRef.current;
+    if (video.readyState < 2 || !video.videoWidth) {
+      showToast('Camera is still focusing, please hold steady...', 'info');
+      return;
+    }
+
     setIsShutterActive(true);
     setTimeout(() => setIsShutterActive(false), 250);
 
-    const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 1920;
-    canvas.height = video.videoHeight || 1080;
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, width, height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       setSelectedImage(dataUrl);
       stopCameraStream();

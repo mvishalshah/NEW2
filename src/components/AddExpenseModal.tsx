@@ -191,12 +191,16 @@ export const AddExpenseModal: React.FC = () => {
   // Parse receipt image base64 with Gemini API
   const parseWithGeminiAPI = async (imageBase64: string) => {
     setIsGeminiScanning(true);
-    setGeminiStatusText('Gemini 3.7 Flash Vision analyzing receipt...');
+    setGeminiStatusText('Gemini Multimodal Vision analyzing receipt...');
 
     try {
       let mimeType = 'image/jpeg';
       if (imageBase64.startsWith('data:image/png')) mimeType = 'image/png';
       else if (imageBase64.startsWith('data:image/webp')) mimeType = 'image/webp';
+
+      const timer1 = setTimeout(() => {
+        setGeminiStatusText('Extracting merchant, line items & amounts...');
+      }, 700);
 
       const res = await fetch('/api/ocr/parse', {
         method: 'POST',
@@ -207,13 +211,16 @@ export const AddExpenseModal: React.FC = () => {
         })
       });
 
+      clearTimeout(timer1);
+
       if (!res.ok) {
-        throw new Error('Server failed to parse receipt with Gemini API.');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.details || errData.error || 'Gemini Vision could not parse this receipt image.');
       }
 
       const data = await res.json();
       if (!data.success || !data.result) {
-        throw new Error(data.error || 'Gemini API was unable to parse receipt details.');
+        throw new Error(data.error || 'Gemini Vision was unable to parse receipt details.');
       }
 
       const parsed: OCRReceiptResult = data.result;
@@ -256,10 +263,10 @@ export const AddExpenseModal: React.FC = () => {
         amount: extractedTotal,
         date: extractedDate,
         category: extractedCategory,
-        model: parsed.modelUsed || 'Gemini 3.7 Flash'
+        model: parsed.modelUsed || 'Gemini AI Vision'
       });
 
-      showToast(`✨ Gemini parsed: ${extractedMerchant} (₹${extractedTotal.toLocaleString('en-IN')}) on ${extractedDate}!`, 'success');
+      showToast(`✨ Extracted: ${extractedMerchant} (₹${extractedTotal.toLocaleString('en-IN')}) on ${extractedDate}!`, 'success');
     } catch (err: any) {
       console.error('Gemini OCR error:', err);
       showToast(err.message || 'Gemini OCR failed to extract receipt details', 'error');
@@ -272,17 +279,24 @@ export const AddExpenseModal: React.FC = () => {
   const capturePhotoAndScan = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
+    const video = videoRef.current;
+    if (video.readyState < 2 || !video.videoWidth) {
+      showToast('Camera is still focusing, please hold steady...', 'info');
+      return;
+    }
+
     setIsShutterActive(true);
     setTimeout(() => setIsShutterActive(false), 200);
 
-    const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 1920;
-    canvas.height = video.videoHeight || 1080;
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, width, height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
       closeCamera();
       parseWithGeminiAPI(dataUrl);
