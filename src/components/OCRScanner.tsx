@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { OCRReceiptResult, OCRItem, Group } from '../types.js';
-import { simulateAIOCRReceiptParsing } from '../services/ocrSimulation.js';
 import {
   Camera,
   Upload,
@@ -255,41 +254,29 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
 
       let parsedResult: OCRReceiptResult | null = null;
 
-      try {
-        const res = await fetch('/api/ocr/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: activeImg,
-            mimeType,
-            sampleKey
-          })
-        });
+      const res = await fetch('/api/ocr/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: activeImg,
+          mimeType,
+          sampleKey
+        })
+      });
 
-        clearTimeout(progressTimer1);
-        clearTimeout(progressTimer2);
+      clearTimeout(progressTimer1);
+      clearTimeout(progressTimer2);
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.result) {
-            parsedResult = data.result;
-          }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.result) {
+          parsedResult = data.result;
         } else {
-          const errData = await res.json().catch(() => ({}));
-          console.warn('Backend OCR error response:', errData);
+          throw new Error(data.error || 'Gemini Vision OCR could not parse receipt.');
         }
-      } catch (networkErr) {
-        console.warn('Backend OCR network failed, attempting client-side fallback:', networkErr);
-      }
-
-      // If server could not be reached, use client-side simulation helper
-      if (!parsedResult) {
-        setScanStatusText('Finalizing OCR extraction...');
-        parsedResult = await simulateAIOCRReceiptParsing(
-          activeImg || undefined,
-          sampleKey,
-          (statusText) => setScanStatusText(statusText)
-        );
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.details || 'Failed to analyze receipt image with Gemini API.');
       }
 
       if (parsedResult) {
@@ -304,17 +291,22 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
         });
         setStep('review');
         showToast(
-          `AI OCR extracted: ${parsedResult.merchantName} (₹${parsedResult.total.toLocaleString('en-IN')})`,
+          `✨ AI OCR extracted: ${parsedResult.merchantName} (₹${parsedResult.total.toLocaleString('en-IN')})`,
           'success'
         );
       } else {
-        throw new Error('Unable to extract data from the receipt image. Please try a clearer photo.');
+        throw new Error('Unable to extract data from the receipt image. Please try a clearer photo or adjust lighting.');
       }
     } catch (err: any) {
       console.error('OCR Processing failure:', err);
       setScanError(err.message || 'Failed to process receipt image.');
       showToast(err.message || 'OCR processing failed.', 'error');
-      setStep('upload');
+      // If we had captured an image, go back to preview_capture so the user can rotate or retake
+      if (selectedImage) {
+        setStep('preview_capture');
+      } else {
+        setStep('upload');
+      }
     } finally {
       setIsProcessing(false);
     }
