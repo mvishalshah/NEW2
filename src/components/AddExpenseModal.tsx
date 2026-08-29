@@ -214,7 +214,12 @@ export const AddExpenseModal: React.FC = () => {
       clearTimeout(timer1);
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        let errData: any = {};
+        try {
+          errData = await res.json();
+        } catch(e) {
+          throw new Error('Image too large or server unreachable. Try uploading a smaller image or retaking the photo.');
+        }
         throw new Error(errData.details || errData.error || 'Gemini Vision could not parse this receipt image.');
       }
 
@@ -289,15 +294,28 @@ export const AddExpenseModal: React.FC = () => {
     setTimeout(() => setIsShutterActive(false), 200);
 
     const canvas = canvasRef.current;
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
+    let width = video.videoWidth || 1280;
+    let height = video.videoHeight || 720;
+    
+    // Cap dimensions to max 1280 to prevent Nginx 413 Payload Too Large
+    const maxDim = 1280;
+    if (width > maxDim || height > maxDim) {
+      if (width > height) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+    }
+    
     canvas.width = width;
     canvas.height = height;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       closeCamera();
       parseWithGeminiAPI(dataUrl);
     }
@@ -310,7 +328,36 @@ export const AddExpenseModal: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        parseWithGeminiAPI(base64);
+        
+        // Compress image before sending to avoid Nginx 413 Payload Too Large
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          // Scale down if larger than 1280px
+          const maxDim = 1280;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            parseWithGeminiAPI(compressedBase64);
+          } else {
+            parseWithGeminiAPI(base64); // Fallback
+          }
+        };
+        img.src = base64;
       };
       reader.readAsDataURL(file);
     }

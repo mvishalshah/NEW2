@@ -191,15 +191,27 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     setTimeout(() => setIsShutterActive(false), 250);
 
     const canvas = canvasRef.current;
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
+    let width = video.videoWidth || 1280;
+    let height = video.videoHeight || 720;
+    
+    const maxDim = 1280;
+    if (width > maxDim || height > maxDim) {
+      if (width > height) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+    }
+    
     canvas.width = width;
     canvas.height = height;
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setSelectedImage(dataUrl);
       stopCameraStream();
       setStep('preview_capture');
@@ -282,7 +294,12 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           throw new Error(data.error || 'Gemini Vision OCR could not parse receipt.');
         }
       } else {
-        const errData = await res.json().catch(() => ({}));
+        let errData: any = {};
+        try {
+          errData = await res.json();
+        } catch (e) {
+          throw new Error('Image too large or server unreachable. Try uploading a smaller image.');
+        }
         throw new Error(errData.error || errData.details || 'Failed to analyze receipt image with Gemini API.');
       }
 
@@ -330,8 +347,37 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        setSelectedImage(base64);
-        processImageOCR(base64);
+        
+        // Compress image to prevent Nginx 413 Payload Too Large
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1280;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            setSelectedImage(compressedBase64);
+            processImageOCR(compressedBase64);
+          } else {
+            setSelectedImage(base64);
+            processImageOCR(base64);
+          }
+        };
+        img.src = base64;
       };
       reader.readAsDataURL(file);
     }
