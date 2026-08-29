@@ -56,8 +56,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      const MAX_WIDTH = 1500;
-      const MAX_HEIGHT = 1500;
+      const MAX_WIDTH = 800;
+      const MAX_HEIGHT = 800;
       let width = video.videoWidth;
       let height = video.videoHeight;
 
@@ -78,7 +78,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, width, height);
-        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        const base64 = canvas.toDataURL('image/jpeg', 0.5);
         setCapturedImage(base64);
         stopCamera();
         processImage(base64);
@@ -97,8 +97,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1500;
-        const MAX_HEIGHT = 1500;
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
 
@@ -119,7 +119,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
           setCapturedImage(compressedBase64);
           stopCamera();
           processImage(compressedBase64);
@@ -145,19 +145,30 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
         body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' })
       });
       
+      const rawText = await res.text();
+      
+      if (rawText.includes('__cookie_check') || rawText.includes('aistudio_auth_flow')) {
+        throw new Error('Please click the "Open in new tab" icon at the top right of this preview. Third-party cookies are blocking the AI scanner.');
+      }
+      
       if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        let errMsg = 'Failed to parse image (Server Error)';
+        let errMsg = `Server Error (${res.status})`;
         try {
-          const errJson = JSON.parse(errText);
+          const errJson = JSON.parse(rawText);
           errMsg = errJson.error || errJson.details || errMsg;
         } catch(e) {
-          if (res.status === 413) errMsg = 'Image is too large. Please crop or compress it.';
+          if (res.status === 413) errMsg = 'Image is too large. Please crop or compress it further.';
+          else errMsg = `Failed to parse image (HTTP ${res.status})`;
         }
         throw new Error(errMsg);
       }
       
-      const data = await res.json();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (err) {
+        throw new Error('Invalid response from server. Please try again.');
+      }
       if (data.success && data.result && data.result.items) {
         const parsedItems = data.result.items.map((item: any, idx: number) => ({
           id: Date.now().toString() + idx,

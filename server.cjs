@@ -1629,6 +1629,19 @@ async function startServer() {
     const success = db.markAllNotificationsAsRead(user.id);
     res.json({ success });
   });
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
+  app.use((err, req, res, next) => {
+    if (err.type === "entity.too.large") {
+      return res.status(413).json({ error: "Image is too large. Please crop or compress it further." });
+    }
+    if (err instanceof SyntaxError && "body" in err) {
+      return res.status(400).json({ error: "Invalid JSON payload" });
+    }
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
+  });
   if (process.env.NODE_ENV !== "production") {
     const vite = await (0, import_vite.createServer)({
       server: { middlewareMode: true },
