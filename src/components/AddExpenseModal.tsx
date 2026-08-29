@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext.js';
-import { OCRScanner } from './OCRScanner.js';
+import { ReceiptScanner } from './ReceiptScanner.js';
 import { SplitMethod, ExpenseItem, OCRReceiptResult } from '../types.js';
 import {
   X,
@@ -379,20 +379,22 @@ export const AddExpenseModal: React.FC = () => {
     }
   };
 
-  // Handle OCR Completion (Full Scanner component)
-  const handleOCRComplete = async (data: any) => {
-    try {
-      const saved = await addExpense({
-        ...data,
-        source: 'ocr'
-      });
-      if (saved) {
-        await refreshAllData();
-        closeAddExpenseModal();
-      }
-    } catch (err) {
-      showToast('Error saving OCR expense', 'error');
+  // Handle Receipt Scanner Completion
+  const handleReceiptScannerComplete = (extractedItems: any[], total: number) => {
+    if (extractedItems.length > 0) {
+      setSplitMethod('item_based');
+      setManualItems(extractedItems.map(item => ({
+        id: item.id || `item_${Date.now()}_${Math.random()}`,
+        name: item.name,
+        quantity: 1,
+        unitPrice: item.price,
+        totalPrice: item.price,
+        assignedUserIds: [currentUser?.id || '']
+      })));
     }
+    setAmount(total.toString());
+    setMode('manual');
+    showToast('Items extracted! Please verify and fill remaining details.', 'success');
   };
 
   // Handle Manual Save
@@ -516,7 +518,7 @@ export const AddExpenseModal: React.FC = () => {
                 }`}
               >
                 <Camera className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Full Item Splitter</span>
+                <span>Scan Receipt</span>
               </button>
             </div>
           </div>
@@ -535,161 +537,13 @@ export const AddExpenseModal: React.FC = () => {
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {mode === 'ocr' ? (
-            <OCRScanner
-              defaultGroupId={groupId}
-              onComplete={handleOCRComplete}
-              onCancel={closeAddExpenseModal}
+            <ReceiptScanner
+              onComplete={handleReceiptScannerComplete}
+              onCancel={() => setMode('manual')}
             />
           ) : (
             <form onSubmit={handleManualSubmit} className="space-y-6">
-              {/* LIVE CAMERA OVERLAY (When user clicks Scan with Camera) */}
-              {isCameraActive && (
-                <div className="relative rounded-2xl overflow-hidden bg-black aspect-[4/3] sm:aspect-[16/10] flex items-center justify-center shadow-xl border-2 border-indigo-500 animate-in zoom-in-95 duration-150">
-                  <video
-                    ref={videoRef}
-                    playsInline
-                    autoPlay
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-
-                  {/* Shutter flash animation */}
-                  {isShutterActive && (
-                    <div className="absolute inset-0 bg-white z-30 animate-out fade-out duration-200" />
-                  )}
-
-                  {/* Viewfinder Framing Guide */}
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
-                    <div className="relative w-full max-w-sm h-4/5 border-2 border-dashed border-white/70 rounded-2xl flex flex-col justify-between p-3">
-                      <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-indigo-400 rounded-tl-lg" />
-                      <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-indigo-400 rounded-tr-lg" />
-                      <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-indigo-400 rounded-bl-lg" />
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-indigo-400 rounded-br-lg" />
-
-                      <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-indigo-400 to-transparent shadow-[0_0_12px_rgba(99,102,241,0.8)] animate-pulse" />
-
-                      <div className="bg-black/60 backdrop-blur-xs text-white text-[11px] font-medium px-3 py-1 rounded-full mx-auto self-center flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3 text-indigo-400" />
-                        <span>Center bill • Gemini will extract merchant, total & date</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Camera Top Controls */}
-                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
-                    <button
-                      type="button"
-                      onClick={closeCamera}
-                      className="p-2 rounded-xl bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors"
-                      title="Cancel Camera"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-
-                    <div className="flex items-center gap-2">
-                      {hasTorch && (
-                        <button
-                          type="button"
-                          onClick={toggleTorch}
-                          className={`p-2 rounded-xl backdrop-blur-md transition-colors ${
-                            torchOn ? 'bg-amber-500 text-white' : 'bg-black/60 text-white hover:bg-black/80'
-                          }`}
-                          title="Toggle Flashlight"
-                        >
-                          {torchOn ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={flipCamera}
-                        className="p-2 rounded-xl bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors"
-                        title="Flip Front/Back Camera"
-                      >
-                        <FlipHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Camera Bottom Shutter Snap Button */}
-                  <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-6 z-20">
-                    <button
-                      type="button"
-                      id="snap-receipt-camera-btn"
-                      onClick={capturePhotoAndScan}
-                      className="w-16 h-16 rounded-full bg-white p-1 shadow-lg shadow-black/40 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center cursor-pointer"
-                      title="Snap Receipt Photo"
-                    >
-                      <div className="w-13 h-13 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-white">
-                        <Camera className="w-6 h-6" />
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* GEMINI OCR SCANNING PROGRESS LOADER */}
-              {isGeminiScanning && (
-                <div className="p-6 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-center space-y-3 animate-in fade-in duration-150">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white mx-auto flex items-center justify-center shadow-md shadow-indigo-600/30">
-                    <RefreshCw className="w-6 h-6 animate-spin" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                      <span>Gemini API Parsing Receipt</span>
-                    </h4>
-                    <p className="text-xs text-indigo-700 dark:text-indigo-300 font-medium mt-1">
-                      {geminiStatusText}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* CAMERA SCANNER HERO BANNER / TRIGGER */}
-              {!isCameraActive && !isGeminiScanning && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white shadow-lg shadow-indigo-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
-                      <Camera className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white">
-                          Scan Receipt with Camera
-                        </h4>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono font-bold tracking-wide">
-                          Gemini 3.7 AI
-                        </span>
-                      </div>
-                      <p className="text-xs text-indigo-100 mt-0.5">
-                        Triggers camera to auto-parse Merchant, Total Amount & Date instantly
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      id="trigger-camera-scan-btn"
-                      onClick={() => startCamera('environment')}
-                      className="px-4 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.02] cursor-pointer"
-                    >
-                      <Camera className="w-4 h-4 text-indigo-600" />
-                      <span>Launch Camera</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => quickFileInputRef.current?.click()}
-                      className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-md transition-colors"
-                      title="Upload image from device"
-                    >
-                      <Upload className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Hidden quick file input removed */}
 
               {/* SUCCESSFUL GEMINI PARSED BANNER */}
               {aiExtractedBanner && !isCameraActive && !isGeminiScanning && (

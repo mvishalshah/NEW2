@@ -168,50 +168,30 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `Analyze this receipt, grocery chit, bill, invoice, or payment image with extreme precision.
-Extract each product/item name, quantity, unit price, and exact numerical line price.
-Also extract merchant name, date (YYYY-MM-DD), bill number, tax, discount, and grand total.
-If any value is missing or unreadable, use null for optional fields.
-Output ONLY structured JSON conforming strictly to the schema.`;
+    const promptText = `Analyze this receipt or image. Extract each product/item name and its exact numerical price. Output ONLY structured JSON containing an array of these items.`;
 
     let response: any;
     let modelUsed = 'gemini-2.5-flash';
 
-    const systemInstruction = "You are a rigid data extraction assistant. You only output valid JSON. You never explain your work. Your task is to analyze images of handwritten receipts, grocery chits, and invoices. Extract each item name and its exact numerical price. If data is missing or illegible, use null.";
+    const systemInstruction = "You are an OCR data extractor. Output ONLY JSON. Extract the product names and their prices from the image.";
 
     const responseSchema = {
       type: Type.OBJECT,
       properties: {
-        merchantName: { type: Type.STRING, description: 'Store, vendor, merchant or recipient name' },
-        date: { type: Type.STRING, description: 'Date of transaction in YYYY-MM-DD format' },
-        receiptNumber: { type: Type.STRING, description: 'Bill or invoice reference number' },
-        category: { type: Type.STRING, description: 'Category e.g. Food, Groceries, Shopping, Hostel, Education, Transport' },
-        currency: { type: Type.STRING, description: 'Currency code e.g. INR' },
         items: {
           type: Type.ARRAY,
+          description: 'List of all extracted items and their prices',
           items: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING, description: 'Extracted product or line item name' },
-              quantity: { type: Type.NUMBER, description: 'Quantity count' },
-              unitPrice: { type: Type.NUMBER, description: 'Unit price' },
-              totalPrice: { type: Type.NUMBER, description: 'Exact numerical price for this item' },
-              confidence: { type: Type.STRING, description: 'Confidence level: high, medium, or verify' }
+              name: { type: Type.STRING, description: 'Product or item name' },
+              price: { type: Type.NUMBER, description: 'Exact numerical price' }
             },
-            required: ['name', 'quantity', 'unitPrice', 'totalPrice', 'confidence']
+            required: ['name', 'price']
           }
-        },
-        subtotal: { type: Type.NUMBER, description: 'Sum before taxes/discounts' },
-        discount: { type: Type.NUMBER, description: 'Discount applied' },
-        tax: { type: Type.NUMBER, description: 'GST or tax amount' },
-        serviceCharge: { type: Type.NUMBER, description: 'Service or delivery fee' },
-        roundOff: { type: Type.NUMBER, description: 'Round off adjustment' },
-        total: { type: Type.NUMBER, description: 'Exact final grand total price' },
-        confidenceOverall: { type: Type.STRING, description: 'high, medium, or low' },
-        rawText: { type: Type.STRING, description: 'Verbatim transcript of recognized text' },
-        upiRef: { type: Type.STRING, description: 'UPI reference or UTR if present' }
+        }
       },
-      required: ['merchantName', 'items', 'total']
+      required: ['items']
     };
 
     try {
@@ -266,85 +246,37 @@ Output ONLY structured JSON conforming strictly to the schema.`;
 
     // Normalize and sanitize items
     let rawItems = Array.isArray(parsedJson.items) ? parsedJson.items : [];
-    
-    // If no items extracted but total is present (e.g. single transaction receipt)
-    if (rawItems.length === 0 && parsedJson.total) {
-      rawItems = [
-        {
-          name: parsedJson.merchantName ? `Payment at ${parsedJson.merchantName}` : 'Expense Bill',
-          quantity: 1,
-          unitPrice: Number(parsedJson.total),
-          totalPrice: Number(parsedJson.total),
-          confidence: 'high'
-        }
-      ];
-    }
 
     const items: OCRItem[] = rawItems.map((item: any, idx: number) => {
-      const quantity = Math.max(1, Number(item.quantity) || 1);
-      const totalPrice = Math.round(Number(item.totalPrice || item.unitPrice || 0) * 100) / 100;
-      const unitPrice = item.unitPrice ? Math.round(Number(item.unitPrice) * 100) / 100 : Math.round((totalPrice / quantity) * 100) / 100;
-
-      let confidence: 'high' | 'medium' | 'low' | 'verify' = 'high';
-      if (item.confidence === 'verify' || item.confidence === 'low') {
-        confidence = 'verify';
-      } else if (item.confidence === 'medium') {
-        confidence = 'medium';
-      }
+      const price = Math.round(Number(item.price || 0) * 100) / 100;
 
       return {
         id: `ocr_it_${Date.now()}_${idx}`,
         name: String(item.name || `Item ${idx + 1}`).trim(),
-        quantity,
-        unitPrice,
-        totalPrice: totalPrice || (quantity * unitPrice),
-        confidence,
+        quantity: 1,
+        unitPrice: price,
+        totalPrice: price,
+        confidence: 'high',
         assignedUserIds: []
       };
     });
 
     const itemsSum = items.reduce((acc, cur) => acc + (cur.totalPrice || 0), 0);
-    const subtotal = Number(parsedJson.subtotal) || Math.round(itemsSum * 100) / 100;
-    const discount = Math.max(0, Number(parsedJson.discount) || 0);
-    const tax = Math.max(0, Number(parsedJson.tax) || 0);
-    const serviceCharge = Math.max(0, Number(parsedJson.serviceCharge) || 0);
-    const roundOff = Number(parsedJson.roundOff) || 0;
+    const subtotal = Math.round(itemsSum * 100) / 100;
+    const discount = 0;
+    const tax = 0;
+    const serviceCharge = 0;
+    const roundOff = 0;
+    const total = subtotal;
 
-    let total = Number(parsedJson.total);
-    if (!total || isNaN(total) || total <= 0) {
-      total = Math.round((subtotal + tax + serviceCharge - discount + roundOff) * 100) / 100;
-    }
-
-    // Valid categories mapping
-    const validCategories: Array<'Food' | 'Transport' | 'Education' | 'Shopping' | 'Entertainment' | 'Hostel' | 'Other'> = [
-      'Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'
-    ];
-    let category = parsedJson.category;
-    if (!validCategories.includes(category)) {
-      const lower = String(parsedJson.category || parsedJson.merchantName || '').toLowerCase();
-      if (lower.includes('cafe') || lower.includes('bistro') || lower.includes('food') || lower.includes('swiggy') || lower.includes('zomato') || lower.includes('pizza') || lower.includes('chai') || lower.includes('canteen') || lower.includes('restaurant')) {
-        category = 'Food';
-      } else if (lower.includes('uber') || lower.includes('ola') || lower.includes('rapido') || lower.includes('metro') || lower.includes('petrol') || lower.includes('fuel') || lower.includes('auto')) {
-        category = 'Transport';
-      } else if (lower.includes('book') || lower.includes('xerox') || lower.includes('print') || lower.includes('stationery') || lower.includes('course') || lower.includes('tution')) {
-        category = 'Education';
-      } else if (lower.includes('hostel') || lower.includes('rent') || lower.includes('electricity') || lower.includes('wifi') || lower.includes('maid') || lower.includes('cook')) {
-        category = 'Hostel';
-      } else if (lower.includes('blinkit') || lower.includes('zepto') || lower.includes('mart') || lower.includes('amazon') || lower.includes('flipkart') || lower.includes('store')) {
-        category = 'Shopping';
-      } else if (lower.includes('movie') || lower.includes('cinema') || lower.includes('pvr') || lower.includes('game') || lower.includes('bowling')) {
-        category = 'Entertainment';
-      } else {
-        category = 'Other';
-      }
-    }
+    const category = 'Other';
 
     const result: OCRReceiptResult = {
-      merchantName: String(parsedJson.merchantName || 'Scanned Merchant').trim(),
-      date: parsedJson.date || new Date().toISOString().split('T')[0],
-      receiptNumber: parsedJson.receiptNumber || parsedJson.upiRef || `REC-${Math.floor(1000 + Math.random() * 9000)}`,
+      merchantName: '',
+      date: new Date().toISOString().split('T')[0],
+      receiptNumber: `REC-${Math.floor(1000 + Math.random() * 9000)}`,
       category: category as any,
-      currency: parsedJson.currency || 'INR',
+      currency: 'INR',
       items,
       subtotal,
       discount,
@@ -352,9 +284,8 @@ Output ONLY structured JSON conforming strictly to the schema.`;
       serviceCharge,
       roundOff,
       total,
-      confidenceOverall: (parsedJson.confidenceOverall === 'low' ? 'low' : parsedJson.confidenceOverall === 'medium' ? 'medium' : 'high'),
-      rawText: parsedJson.rawText || `Merchant: ${parsedJson.merchantName}\nDate: ${parsedJson.date}\nTotal: ₹${total}`,
-      upiRef: parsedJson.upiRef || undefined,
+      confidenceOverall: 'high',
+      rawText: 'Simple Table Parsing Mode',
       isAiParsed: true,
       modelUsed
     };
