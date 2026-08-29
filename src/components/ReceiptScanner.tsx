@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Trash2, Plus, Check, RefreshCw, X } from 'lucide-react';
+import { Camera, Sparkles, Trash2, Plus, Check, RefreshCw, X, Upload } from 'lucide-react';
 
 interface ScannedItem {
   id: string;
@@ -16,6 +16,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
   const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [items, setItems] = useState<ScannedItem[]>([]);
@@ -67,6 +68,55 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1500;
+        const MAX_HEIGHT = 1500;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          setCapturedImage(compressedBase64);
+          stopCamera();
+          processImage(compressedBase64);
+        }
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset input so the same file can be uploaded again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const processImage = async (base64: string) => {
     setIsScanning(true);
     setError(null);
@@ -78,7 +128,15 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
       });
       
       if (!res.ok) {
-        throw new Error('Failed to parse image');
+        const errText = await res.text().catch(() => '');
+        let errMsg = 'Failed to parse image (Server Error)';
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errJson.details || errMsg;
+        } catch(e) {
+          if (res.status === 413) errMsg = 'Image is too large. Please crop or compress it.';
+        }
+        throw new Error(errMsg);
       }
       
       const data = await res.json();
@@ -146,11 +204,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
         {step === 'camera' && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative w-full max-w-sm aspect-[3/4] bg-black rounded-2xl overflow-hidden shadow-inner">
-              {isScanning ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 text-white z-10 backdrop-blur-sm">
-                  <RefreshCw className="w-10 h-10 animate-spin text-indigo-400 mb-4" />
-                  <p className="font-medium animate-pulse">Extracting products & prices...</p>
-                </div>
+              {capturedImage ? (
+                <img src={capturedImage} alt="Receipt Preview" className="absolute inset-0 w-full h-full object-cover" />
               ) : (
                 <video 
                   ref={videoRef} 
@@ -159,10 +214,26 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
                   className="w-full h-full object-cover"
                 />
               )}
+
+              {isScanning && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/70 text-white z-10 backdrop-blur-sm p-6 text-center">
+                  <div className="relative w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/40">
+                    <div className="absolute inset-0 bg-indigo-400 rounded-2xl animate-ping opacity-30"></div>
+                    <Sparkles className="w-8 h-8 text-white animate-pulse" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Analyzing Receipt</h3>
+                  <p className="text-sm text-indigo-200 font-medium">Gemini AI is extracting items...</p>
+                  
+                  <div className="w-full max-w-[200px] h-1.5 bg-slate-800 rounded-full mt-8 overflow-hidden">
+                    <div className="h-full bg-indigo-500 rounded-full w-2/3 animate-pulse"></div>
+                  </div>
+                </div>
+              )}
+
               <canvas ref={canvasRef} className="hidden" />
               
               {/* Camera overlay guide */}
-              {!isScanning && (
+              {!isScanning && !capturedImage && (
                 <div className="absolute inset-0 pointer-events-none border-2 border-white/20 m-6 rounded-xl border-dashed">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 text-sm font-medium text-center">
                     Align receipt<br/>within frame
@@ -171,13 +242,32 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
               )}
             </div>
 
-            <button
-              onClick={capturePhoto}
-              disabled={isScanning || !stream}
-              className="mt-2 w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/30 flex items-center justify-center shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="w-12 h-12 rounded-full border-2 border-white" />
-            </button>
+            <div className="flex items-center justify-center gap-6 mt-2">
+              <button
+                onClick={capturePhoto}
+                disabled={isScanning || !stream}
+                className="w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/30 flex items-center justify-center shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Capture Photo"
+              >
+                <div className="w-12 h-12 rounded-full border-2 border-white" />
+              </button>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isScanning}
+                className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-slate-200 dark:border-slate-700"
+                title="Upload Receipt Image"
+              >
+                <Upload className="w-5 h-5" />
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </div>
           </div>
         )}
 
