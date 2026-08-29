@@ -561,9 +561,9 @@ export const Navbar: React.FC = () => {
               <button
                 id="nav-auth-btn"
                 onClick={() => openAuthModal('signin')}
-                className="h-9 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 transition-all shadow-xs shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="h-9 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 transition-all shadow-xs shadow-red-600/30 flex items-center gap-1.5 cursor-pointer shrink-0"
               >
-                <UserIcon className="w-3.5 h-3.5 text-indigo-200" />
+                <UserIcon className="w-3.5 h-3.5 text-red-200" />
                 <span>Sign In / Sign Up</span>
               </button>
             )}
