@@ -194,7 +194,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     let width = video.videoWidth || 1280;
     let height = video.videoHeight || 720;
     
-    const maxDim = 800;
+    const maxDim = 1500;
     if (width > maxDim || height > maxDim) {
       if (width > height) {
         height = Math.round((height * maxDim) / width);
@@ -211,7 +211,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       setSelectedImage(dataUrl);
       stopCameraStream();
       setStep('preview_capture');
@@ -294,11 +294,12 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           throw new Error(data.error || 'Gemini Vision OCR could not parse receipt.');
         }
       } else {
+        const text = await res.text().catch(() => '');
         let errData: any = {};
         try {
-          errData = await res.json();
+          errData = JSON.parse(text);
         } catch (e) {
-          throw new Error('Image too large or server unreachable. Try uploading a smaller image.');
+          throw new Error(`Server Error (${res.status}): ${text.slice(0, 100) || 'Unknown error'}`);
         }
         throw new Error(errData.error || errData.details || 'Failed to analyze receipt image with Gemini API.');
       }
@@ -354,7 +355,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 800;
+          const maxDim = 1500;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -369,7 +370,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.9);
             setSelectedImage(compressedBase64);
             processImageOCR(compressedBase64);
           } else {

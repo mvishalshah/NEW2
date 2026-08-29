@@ -168,12 +168,16 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `Extract receipt data to JSON.`;
+    const promptText = `Analyze this receipt, grocery chit, bill, invoice, or payment image with extreme precision.
+Extract each product/item name, quantity, unit price, and exact numerical line price.
+Also extract merchant name, date (YYYY-MM-DD), bill number, tax, discount, and grand total.
+If any value is missing or unreadable, use null for optional fields.
+Output ONLY structured JSON conforming strictly to the schema.`;
 
     let response: any;
     let modelUsed = 'gemini-2.5-flash';
 
-    const systemInstruction = "Extract items and prices from receipts to JSON.";
+    const systemInstruction = "You are a rigid data extraction assistant. You only output valid JSON. You never explain your work. Your task is to analyze images of handwritten receipts, grocery chits, and invoices. Extract each item name and its exact numerical price. If data is missing or illegible, use null.";
 
     const responseSchema = {
       type: Type.OBJECT,

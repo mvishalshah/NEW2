@@ -214,11 +214,12 @@ export const AddExpenseModal: React.FC = () => {
       clearTimeout(timer1);
 
       if (!res.ok) {
+        const text = await res.text().catch(() => '');
         let errData: any = {};
         try {
-          errData = await res.json();
+          errData = JSON.parse(text);
         } catch(e) {
-          throw new Error('Image too large or server unreachable. Try uploading a smaller image or retaking the photo.');
+          throw new Error(`Server Error (${res.status}): ${text.slice(0, 100) || 'Unknown error'}`);
         }
         throw new Error(errData.details || errData.error || 'Gemini Vision could not parse this receipt image.');
       }
@@ -298,7 +299,7 @@ export const AddExpenseModal: React.FC = () => {
     let height = video.videoHeight || 720;
     
     // Cap dimensions to max 800 to prevent Nginx 413 Payload Too Large and speed up processing
-    const maxDim = 800;
+    const maxDim = 1500;
     if (width > maxDim || height > maxDim) {
       if (width > height) {
         height = Math.round((height * maxDim) / width);
@@ -315,7 +316,7 @@ export const AddExpenseModal: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       closeCamera();
       parseWithGeminiAPI(dataUrl);
     }
@@ -336,7 +337,7 @@ export const AddExpenseModal: React.FC = () => {
           let width = img.width;
           let height = img.height;
           // Scale down if larger than 800px
-          const maxDim = 800;
+          const maxDim = 1500;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -351,7 +352,7 @@ export const AddExpenseModal: React.FC = () => {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.9);
             parseWithGeminiAPI(compressedBase64);
           } else {
             parseWithGeminiAPI(base64); // Fallback
