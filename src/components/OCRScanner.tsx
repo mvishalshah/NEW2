@@ -194,7 +194,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     let width = video.videoWidth || 1280;
     let height = video.videoHeight || 720;
     
-    const maxDim = 1280;
+    const maxDim = 800;
     if (width > maxDim || height > maxDim) {
       if (width > height) {
         height = Math.round((height * maxDim) / width);
@@ -211,7 +211,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
       setSelectedImage(dataUrl);
       stopCameraStream();
       setStep('preview_capture');
@@ -354,7 +354,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 1280;
+          const maxDim = 800;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -369,7 +369,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onComplete, onCancel, de
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
             setSelectedImage(compressedBase64);
             processImageOCR(compressedBase64);
           } else {

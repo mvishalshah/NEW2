@@ -297,8 +297,8 @@ export const AddExpenseModal: React.FC = () => {
     let width = video.videoWidth || 1280;
     let height = video.videoHeight || 720;
     
-    // Cap dimensions to max 1280 to prevent Nginx 413 Payload Too Large
-    const maxDim = 1280;
+    // Cap dimensions to max 800 to prevent Nginx 413 Payload Too Large and speed up processing
+    const maxDim = 800;
     if (width > maxDim || height > maxDim) {
       if (width > height) {
         height = Math.round((height * maxDim) / width);
@@ -315,7 +315,7 @@ export const AddExpenseModal: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
       closeCamera();
       parseWithGeminiAPI(dataUrl);
     }
@@ -335,8 +335,8 @@ export const AddExpenseModal: React.FC = () => {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          // Scale down if larger than 1280px
-          const maxDim = 1280;
+          // Scale down if larger than 800px
+          const maxDim = 800;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -351,7 +351,7 @@ export const AddExpenseModal: React.FC = () => {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
             parseWithGeminiAPI(compressedBase64);
           } else {
             parseWithGeminiAPI(base64); // Fallback

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,20 +13,20 @@
       (function() {
         try {
           var stored = localStorage.getItem('splitmate_dark_mode');
-          if (stored === 'false') {
-            document.documentElement.classList.remove('dark');
-            document.body && document.body.classList.remove('dark');
-          } else {
+          if (stored === 'true') {
             document.documentElement.classList.add('dark');
             document.body && document.body.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.body && document.body.classList.remove('dark');
           }
         } catch (e) {
-          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('dark');
         }
       })();
     </script>
   </head>
-  <body class="dark">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

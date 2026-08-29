@@ -199,9 +199,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (stored !== null) {
         return stored === 'true';
       }
-      return true; // Primary default is dark mode
+      return false; // Primary default is light mode
     } catch {
-      return true;
+      return false;
     }
   });
 
