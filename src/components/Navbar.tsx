@@ -257,9 +257,9 @@ export const Navbar: React.FC = () => {
               onClick={() => openAddExpenseModal('manual')}
               className="inline-flex items-center gap-1.5 h-9 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-md shadow-indigo-600/20 dark:shadow-none transition-all active:scale-95 shrink-0 cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span className="hidden xs:inline">Add Expense</span>
-              <span className="xs:hidden">Add</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Add Expense</span>
+              <span className="sm:hidden">Add</span>
             </button>
 
             {/* Quick Scan Receipt (Desktop) */}
@@ -561,10 +561,11 @@ export const Navbar: React.FC = () => {
               <button
                 id="nav-auth-btn"
                 onClick={() => openAuthModal('signin')}
-                className="h-9 px-3.5 sm:px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 transition-all shadow-xs shadow-red-600/30 flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="h-9 px-3 sm:px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 transition-all shadow-xs shadow-red-600/30 flex items-center gap-1.5 cursor-pointer shrink-0"
               >
-                <UserIcon className="w-3.5 h-3.5 text-red-200" />
-                <span>Sign In / Sign Up</span>
+                <UserIcon className="w-3.5 h-3.5 text-red-200 shrink-0" />
+                <span className="hidden sm:inline">Sign In / Sign Up</span>
+                <span className="sm:hidden">Sign In</span>
               </button>
             )}
           </div>

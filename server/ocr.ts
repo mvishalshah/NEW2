@@ -171,7 +171,7 @@ export async function parseReceiptWithGemini(
     const promptText = `Analyze this receipt or image. Extract each product/item name and its exact numerical price. Output ONLY structured JSON containing an array of these items.`;
 
     let response: any;
-    let modelUsed = 'gemini-2.5-flash';
+    let modelUsed = 'gemini-3.6-flash';
 
     const systemInstruction = "You are an OCR data extractor. Output ONLY JSON. Extract the product names and their prices from the image.";
 
@@ -196,7 +196,7 @@ export async function parseReceiptWithGemini(
 
     try {
       response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         contents: [
           imagePart,
           { text: promptText }
@@ -208,10 +208,10 @@ export async function parseReceiptWithGemini(
         }
       });
     } catch (primaryErr: any) {
-      console.warn('gemini-2.5-flash call failed, attempting gemini-3.7-flash:', primaryErr.message);
-      modelUsed = 'gemini-3.7-flash';
+      console.warn('gemini-3.6-flash call failed, attempting gemini-2.0-flash:', primaryErr.message);
+      modelUsed = 'gemini-2.0-flash';
       response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-2.0-flash',
         contents: [
           imagePart,
           { text: promptText }
