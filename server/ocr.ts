@@ -111,38 +111,8 @@ export async function parseReceiptWithGemini(
   }
 
   const ai = getGenAI();
-
   if (!ai) {
-    console.warn('GEMINI_API_KEY not set in environment. Returning smart fallback.');
-    const todayStr = new Date().toISOString().split('T')[0];
-    return {
-      merchantName: 'Scanned Bill',
-      date: todayStr,
-      receiptNumber: `REC-${Date.now().toString().slice(-4)}`,
-      category: 'Food',
-      currency: 'INR',
-      items: [
-        {
-          id: `ocr_it_${Date.now()}_0`,
-          name: 'Scanned Receipt Item',
-          quantity: 1,
-          unitPrice: 150,
-          totalPrice: 150,
-          confidence: 'medium',
-          assignedUserIds: []
-        }
-      ],
-      subtotal: 150,
-      discount: 0,
-      tax: 0,
-      serviceCharge: 0,
-      roundOff: 0,
-      total: 150,
-      confidenceOverall: 'medium',
-      rawText: 'Scanned Bill Photo\nDate: ' + todayStr + '\nTotal: ₹150.00\n(Configure GEMINI_API_KEY in Settings > Secrets for AI Vision)',
-      isAiParsed: false,
-      modelUsed: 'Smart Fallback'
-    };
+    throw new Error('GEMINI_API_KEY is not configured. Please add it to your environment variables or Secrets in AI Studio.');
   }
 
   try {
@@ -208,10 +178,10 @@ export async function parseReceiptWithGemini(
         }
       });
     } catch (primaryErr: any) {
-      console.warn('gemini-3.6-flash call failed, attempting gemini-2.0-flash:', primaryErr.message);
-      modelUsed = 'gemini-2.0-flash';
+      console.warn('gemini-3.6-flash call failed, attempting gemini-pro:', primaryErr.message);
+      modelUsed = 'gemini-pro';
       response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-pro',
         contents: [
           imagePart,
           { text: promptText }
@@ -293,35 +263,7 @@ export async function parseReceiptWithGemini(
     return result;
   } catch (err: any) {
     console.error('Gemini Multimodal OCR Error:', err);
-    const todayStr = new Date().toISOString().split('T')[0];
-    return {
-      merchantName: 'Receipt Expense',
-      date: todayStr,
-      receiptNumber: `REC-${Date.now().toString().slice(-4)}`,
-      category: 'Food',
-      currency: 'INR',
-      items: [
-        {
-          id: `ocr_it_${Date.now()}_0`,
-          name: 'Scanned Bill Item',
-          quantity: 1,
-          unitPrice: 100,
-          totalPrice: 100,
-          confidence: 'medium',
-          assignedUserIds: []
-        }
-      ],
-      subtotal: 100,
-      discount: 0,
-      tax: 0,
-      serviceCharge: 0,
-      roundOff: 0,
-      total: 100,
-      confidenceOverall: 'medium',
-      rawText: 'Scanned Bill Photo\nDate: ' + todayStr + '\nTotal: ₹100.00\nNote: ' + (err.message || 'AI OCR could not fully read receipt text'),
-      isAiParsed: false,
-      modelUsed: 'Fallback Engine'
-    };
+    throw err;
   }
 }
 
