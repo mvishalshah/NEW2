@@ -38,6 +38,8 @@ export const AddExpenseModal: React.FC = () => {
     currentUser,
     selectedGroupId: contextGroupId,
     addExpense,
+    updateExpense,
+    editExpenseData,
     refreshAllData,
     showToast
   } = useApp();
@@ -90,6 +92,45 @@ export const AddExpenseModal: React.FC = () => {
   const [manualItems, setManualItems] = useState<ExpenseItem[]>([
     { id: 'item_1', name: 'Item 1', quantity: 1, unitPrice: 0, totalPrice: 0, assignedUserIds: [currentUser?.id || ''] }
   ]);
+
+  useEffect(() => {
+    if (isAddExpenseModalOpen && editExpenseData) {
+      setMode('manual');
+      setTitle(editExpenseData.title || '');
+      setAmount(editExpenseData.amount ? String(editExpenseData.amount) : '');
+      setCategory(editExpenseData.category || 'Food');
+      setDate(editExpenseData.date || new Date().toISOString().split('T')[0]);
+      setDescription(editExpenseData.description || '');
+      setGroupId(editExpenseData.groupId || contextGroupId || groups[0]?.id || '');
+      setPaidBy(editExpenseData.paidBy || currentUser?.id || '');
+      setSplitMethod(editExpenseData.splitMethod || 'equal');
+      
+      if (editExpenseData.items && editExpenseData.items.length > 0) {
+        setManualItems(editExpenseData.items);
+      }
+      
+      if (editExpenseData.participants && editExpenseData.participants.length > 0) {
+        setSelectedUserIds(editExpenseData.participants.map(p => p.userId));
+        const newExact: Record<string, number> = {};
+        const newPct: Record<string, number> = {};
+        editExpenseData.participants.forEach(p => {
+          if (p.exactAmount) newExact[p.userId] = p.exactAmount;
+          if (p.percentage) newPct[p.userId] = p.percentage;
+        });
+        setExactAmounts(newExact);
+        setPercentages(newPct);
+      }
+      setScannedReceiptPreview(editExpenseData.receiptUrl || null);
+    } else if (isAddExpenseModalOpen) {
+      // Reset logic for new
+      setTitle('');
+      setAmount('');
+      setDescription('');
+      setMode(initialAddExpenseMode || 'manual');
+      setScannedReceiptPreview(null);
+      setAiExtractedBanner(null);
+    }
+  }, [isAddExpenseModalOpen, editExpenseData]);
 
   // Clean up camera stream
   const stopCameraStream = useCallback(() => {
@@ -450,7 +491,7 @@ export const AddExpenseModal: React.FC = () => {
     }
 
     try {
-      const saved = await addExpense({
+      const payload = {
         title,
         amount: numAmount,
         category,
@@ -458,13 +499,20 @@ export const AddExpenseModal: React.FC = () => {
         description,
         groupId: groupId || undefined,
         paidBy: paidBy || currentUser?.id,
-        source: scannedReceiptPreview ? 'ocr' : 'manual',
+        source: editExpenseData ? editExpenseData.source : (scannedReceiptPreview ? 'ocr' : 'manual'),
         splitMethod,
         items: splitMethod === 'item_based' ? manualItems : undefined,
         participants: participantsPayload,
         receiptUrl: scannedReceiptPreview || undefined
-      });
+      };
 
+      let saved;
+      if (editExpenseData) {
+        saved = await updateExpense(editExpenseData.id, payload);
+      } else {
+        saved = await addExpense(payload);
+      }
+      
       if (saved) {
         await refreshAllData();
         closeAddExpenseModal();
@@ -504,7 +552,7 @@ export const AddExpenseModal: React.FC = () => {
                 }`}
               >
                 <PenTool className="w-3.5 h-3.5" />
-                <span>✍️ Add Expense</span>
+                <span>{editExpenseData ? '✍️ Edit Expense' : '✍️ Add Expense'}</span>
               </button>
 
               <button
@@ -819,7 +867,7 @@ export const AddExpenseModal: React.FC = () => {
                   className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-100 dark:shadow-none flex items-center gap-2 transition-all cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Save Expense</span>
+                  <span>{editExpenseData ? 'Save Changes' : 'Save Expense'}</span>
                 </button>
               </div>
             </form>

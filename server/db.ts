@@ -916,6 +916,101 @@ class DatabaseStore {
     return newExpense;
   }
 
+  updateExpense(expenseId: string, userId: string, data: {
+    groupId?: string;
+    title: string;
+    description?: string;
+    amount: number;
+    category: any;
+    date?: string;
+    paidBy: string;
+    source: 'manual' | 'ocr';
+    splitMethod: any;
+    items?: any[];
+    participants: Array<{ userId: string; shareAmount?: number; percentage?: number; exactAmount?: number }>;
+    receiptUrl?: string;
+  }): any {
+    const idx = this.expenses.findIndex(e => e.id === expenseId);
+    if (idx === -1) return null;
+    const existing = this.expenses[idx];
+    if (existing.createdBy !== userId && existing.paidBy !== userId) {
+      return null;
+    }
+
+    const totalAmount = Math.round(Number(data.amount) * 100) / 100;
+    const group = data.groupId ? this.groups.find((g) => g.id === data.groupId) : undefined;
+    let finalParticipants: any[] = [];
+    
+    // Quick copy of split method from addExpense
+    if (data.splitMethod === 'equal') {
+      const pCount = data.participants.length;
+      if (pCount > 0) {
+        const perHead = Math.round((totalAmount / pCount) * 100) / 100;
+        finalParticipants = data.participants.map((p) => ({
+          userId: p.userId,
+          shareAmount: perHead,
+          isPaid: p.userId === data.paidBy
+        }));
+        const currentSum = finalParticipants.reduce((sum, p) => sum + p.shareAmount, 0);
+        const diff = Math.round((totalAmount - currentSum) * 100) / 100;
+        if (diff !== 0) finalParticipants[0].shareAmount = Math.round((finalParticipants[0].shareAmount + diff) * 100) / 100;
+      }
+    } else if (data.splitMethod === 'percentage') {
+      finalParticipants = data.participants.map((p) => ({
+        userId: p.userId,
+        shareAmount: Math.round(totalAmount * ((p.percentage || 0) / 100) * 100) / 100,
+        percentage: p.percentage,
+        isPaid: p.userId === data.paidBy
+      }));
+      const currentSum = finalParticipants.reduce((sum, p) => sum + p.shareAmount, 0);
+      const diff = Math.round((totalAmount - currentSum) * 100) / 100;
+      if (diff !== 0 && finalParticipants.length > 0) finalParticipants[0].shareAmount = Math.round((finalParticipants[0].shareAmount + diff) * 100) / 100;
+    } else if (data.splitMethod === 'exact') {
+      finalParticipants = data.participants.map((p) => ({
+        userId: p.userId,
+        shareAmount: Math.round(Number(p.exactAmount || p.shareAmount || 0) * 100) / 100,
+        exactAmount: p.exactAmount,
+        isPaid: p.userId === data.paidBy
+      }));
+    } else if (data.splitMethod === 'item_based' && data.items && data.items.length > 0) {
+      const userShareMap: Record<string, number> = {};
+      data.items.forEach(item => {
+        const assignedIds = item.assignedUserIds || [];
+        if (assignedIds.length > 0) {
+          const splitAmt = (item.totalPrice || 0) / assignedIds.length;
+          assignedIds.forEach(id => {
+            userShareMap[id] = (userShareMap[id] || 0) + splitAmt;
+          });
+        }
+      });
+      finalParticipants = data.participants.map(p => ({
+        userId: p.userId,
+        shareAmount: Math.round((userShareMap[p.userId] || 0) * 100) / 100,
+        isPaid: p.userId === data.paidBy
+      }));
+    }
+
+    const updatedExpense = {
+      ...existing,
+      groupId: data.groupId,
+      groupName: group?.name || 'Personal / General',
+      title: data.title,
+      description: data.description,
+      amount: totalAmount,
+      category: data.category || 'Food',
+      date: data.date || existing.date,
+      paidBy: data.paidBy,
+      source: data.source || existing.source,
+      splitMethod: data.splitMethod,
+      items: data.items,
+      participants: finalParticipants,
+      receiptUrl: data.receiptUrl !== undefined ? data.receiptUrl : existing.receiptUrl
+    };
+
+    this.expenses[idx] = updatedExpense;
+    return updatedExpense;
+  }
+
   deleteExpense(expenseId: string, userId: string): boolean {
     const idx = this.expenses.findIndex((e) => e.id === expenseId);
     if (idx === -1) return false;

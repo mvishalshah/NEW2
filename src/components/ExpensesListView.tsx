@@ -25,12 +25,14 @@ export const ExpensesListView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedGroupId, setSelectedGroupId] = useState('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'receipts'>('all');
 
   const categories = ['all', 'Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'];
 
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const filteredExpenses = safeExpenses.filter((exp) => {
     if (!exp) return false;
+    if (activeTab === 'receipts' && exp.source !== 'ocr' && !exp.receiptUrl && !(exp.items && exp.items.length > 0)) return false;
     const matchesCat = selectedCategory === 'all' || exp.category === selectedCategory;
     const matchesGrp = selectedGroupId === 'all' || (selectedGroupId === 'personal' ? !exp.groupId : exp.groupId === selectedGroupId);
     const q = searchQuery.toLowerCase();
@@ -58,6 +60,8 @@ export const ExpensesListView: React.FC = () => {
           </p>
         </div>
 
+
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => openAddExpenseModal('ocr')}
@@ -74,6 +78,23 @@ export const ExpensesListView: React.FC = () => {
             <span>Add Expense</span>
           </button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'all' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+        >
+          All Expenses
+        </button>
+        <button
+          onClick={() => setActiveTab('receipts')}
+          className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'receipts' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+        >
+          <Receipt className="w-4 h-4" />
+          Receipt History
+        </button>
       </div>
 
       {/* Filters Toolbar */}
@@ -206,6 +227,14 @@ export const ExpensesListView: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  <button
+                    onClick={() => openAddExpenseModal(exp.source === 'ocr' ? 'ocr' : 'manual', exp.groupId, exp)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
+                    title={exp.source === 'ocr' ? 'Edit / Re-split Receipt' : 'Edit Expense'}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-pen-square"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                  </button>
 
                   {(isPayer || exp.createdBy === currentUser?.id) && (
                     <button

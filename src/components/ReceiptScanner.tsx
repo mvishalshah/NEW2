@@ -150,9 +150,10 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
         let errMsg = 'Failed to parse image (Server Error)';
         try {
           const errJson = JSON.parse(errText);
-          errMsg = errJson.error || errJson.details || errMsg;
+          errMsg = errJson.details || errJson.error || errMsg;
         } catch(e) {
           if (res.status === 413) errMsg = 'Image is too large. Please crop or compress it.';
+          if (res.status === 504) errMsg = 'Vercel timeout (10s limit reached). Please try again or upgrade hosting.';
         }
         throw new Error(errMsg);
       }

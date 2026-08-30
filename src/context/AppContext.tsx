@@ -62,6 +62,8 @@ interface AppContextType {
   selectedGroupId: string | null;
   isAddExpenseModalOpen: boolean;
   initialAddExpenseMode: 'manual' | 'ocr';
+  editExpenseData?: Expense;
+  updateExpense: (id: string, data: any) => Promise<Expense | null>;
   isMoneyExchangeOpen: boolean;
   isAuthModalOpen: boolean;
   authModalMode: 'signin' | 'signup';
@@ -92,7 +94,7 @@ interface AppContextType {
   openAccountSwitcher: () => void;
   closeAccountSwitcher: () => void;
   setActiveView: (view: AppContextType['activeView'], groupId?: string) => void;
-  openAddExpenseModal: (mode?: 'manual' | 'ocr', groupId?: string) => void;
+  openAddExpenseModal: (mode?: 'manual' | 'ocr', groupId?: string, expenseToEdit?: Expense) => void;
   closeAddExpenseModal: () => void;
   openAuthModal: (mode?: 'signin' | 'signup') => void;
   closeAuthModal: () => void;
@@ -184,6 +186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState<boolean>(false);
   const [initialAddExpenseMode, setInitialAddExpenseMode] = useState<'manual' | 'ocr'>('manual');
+  const [editExpenseData, setEditExpenseData] = useState<Expense | undefined>(undefined);
   const [isMoneyExchangeOpen, setIsMoneyExchangeOpen] = useState<boolean>(false);
   const [activeSettlementData, setActiveSettlementData] = useState<any | null>(null);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState<boolean>(false);
@@ -828,6 +831,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
+  const updateExpense = async (id: string, data: any): Promise<Expense | null> => {
+    if (isSupabaseConfigured()) {
+      // not fully supporting supabase edit right now
+      showToast('Edit not supported in remote mode yet.', 'error');
+      return null;
+    }
+    try {
+      const res = await fetch(`/api/expenses/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setExpenses(prev => prev.map(e => e.id === id ? resData.expense : e));
+        showToast('Expense updated successfully!', 'success');
+        return resData.expense;
+      } else {
+        showToast(resData.error || 'Failed to update expense', 'error');
+      }
+    } catch {
+      showToast('Error updating expense', 'error');
+    }
+    return null;
+  };
+
   const addExpense = async (data: any): Promise<Expense | null> => {
     const paidBy = data.paidBy || currentUser?.id || 'u1';
     const newExpense: Expense = {
@@ -1145,19 +1174,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return uploadAvatarToSupabase(file, currentUser.id);
   };
 
-  const openAddExpenseModal = (mode: 'manual' | 'ocr' = 'manual', groupId?: string) => {
+  const openAddExpenseModal = (mode: 'manual' | 'ocr' = 'manual', groupId?: string, expenseToEdit?: Expense) => {
     if (!currentUser) {
       openAuthModal('signin');
       showToast('Please sign in or sign up to add expenses & scan receipts', 'info');
       return;
     }
     setInitialAddExpenseMode(mode);
+    setEditExpenseData(expenseToEdit);
     if (groupId) setSelectedGroupId(groupId);
     setIsAddExpenseModalOpen(true);
   };
 
   const closeAddExpenseModal = () => {
     setIsAddExpenseModalOpen(false);
+    setTimeout(() => setEditExpenseData(undefined), 300);
   };
 
   const openMoneyExchange = (data: {
@@ -1238,6 +1269,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedGroupId,
         isAddExpenseModalOpen,
         initialAddExpenseMode,
+        editExpenseData,
+        updateExpense,
         isMoneyExchangeOpen,
         isAuthModalOpen,
         authModalMode,
