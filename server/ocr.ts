@@ -24,7 +24,7 @@ export const sampleReceiptTemplates: Record<string, OCRReceiptResult> = {
     confidenceOverall: 'high',
     rawText: 'CAMPUS BISTRO & CAFE\nBill No: CBC-9402  Date: 25-02-2026\nPaneer Tikka Sandwich x2 = 320.00\nIced Caramel Frappe x2 = 280.00\nPeri-Peri Fries Large x1 = 150.00\nChoco Brownie Sundae x1 = 120.00\nSubtotal: 870.00\nDiscount: -50.00\nGST 5%: 41.00\nGrand Total: INR 861.00\nThank You Visit Again!',
     isAiParsed: true,
-    modelUsed: 'gemini-1.5-flash'
+    modelUsed: 'gemini-3.7-flash'
   },
   groceries: {
     merchantName: 'Hostel Mart & Supermarket',
@@ -49,7 +49,7 @@ export const sampleReceiptTemplates: Record<string, OCRReceiptResult> = {
     confidenceOverall: 'high',
     rawText: 'HOSTEL MART & SUPERMARKET\nInv #HM-88124  24-Feb-2026\nMaggi 12pk x2 336\nAmul Milk 1L x3 204\nNescafe 100g 295\nSnacks Combo x4 160\nBiscuits Pack x4 140\nRoom Sanitizer & Spray 215\nTotal Items: 6\nDiscount: 30\nNET AMOUNT: Rs. 1,320.00',
     isAiParsed: true,
-    modelUsed: 'gemini-1.5-flash'
+    modelUsed: 'gemini-3.7-flash'
   },
   stationery: {
     merchantName: 'Sri Balaji University Xerox & Book Depot',
@@ -72,7 +72,7 @@ export const sampleReceiptTemplates: Record<string, OCRReceiptResult> = {
     confidenceOverall: 'high',
     rawText: 'SRI BALAJI UNIVERSITY XEROX\n23/02/2026\nEngg Notes Spiral x3: 540\nLab Record x4: 380\nColor A3 Prints x15: 300\nStationery Binder: 130\nTotal: 1350. Disc: 50. Total: Rs 1300',
     isAiParsed: true,
-    modelUsed: 'gemini-1.5-flash'
+    modelUsed: 'gemini-3.7-flash'
   }
 };
 
@@ -141,7 +141,7 @@ export async function parseReceiptWithGemini(
     const promptText = `Analyze this receipt or image. Extract each product/item name and its exact numerical price. Output ONLY structured JSON containing an array of these items.`;
 
     let response: any;
-    let modelUsed = 'gemini-1.5-flash';
+    let modelUsed = 'gemini-3.7-flash';
 
     const systemInstruction = "You are an OCR data extractor. Output ONLY JSON. Extract the product names and their prices from the image.";
 
@@ -166,7 +166,7 @@ export async function parseReceiptWithGemini(
 
     try {
       response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.7-flash',
         contents: [
           imagePart,
           { text: promptText }
@@ -178,10 +178,10 @@ export async function parseReceiptWithGemini(
         }
       });
     } catch (primaryErr: any) {
-      console.warn('gemini-1.5-flash call failed, attempting gemini-1.5-pro:', primaryErr.message);
-      modelUsed = 'gemini-1.5-pro';
+      console.warn('gemini-3.7-flash call failed, attempting gemini-3.1-flash-lite:', primaryErr.message);
+      modelUsed = 'gemini-3.1-flash-lite';
       response = await ai.models.generateContent({
-        model: 'gemini-1.5-pro',
+        model: 'gemini-3.1-flash-lite',
         contents: [
           imagePart,
           { text: promptText }
