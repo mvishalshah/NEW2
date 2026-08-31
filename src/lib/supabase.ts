@@ -261,7 +261,7 @@ export async function insertGroupToSupabase(group: Group): Promise<boolean> {
         groupId: group.id,
         userId: group.ownerId,
         role: 'owner',
-        status: 'active'
+        status: 'pending'
       });
     }
 
@@ -373,7 +373,7 @@ export async function joinGroupByCodeInSupabase(
 
     return {
       success: true,
-      message: `Joined "${group.name}" successfully! 🎉`,
+      message: `Join request for "${group.name}" sent to admin for approval!`,
       group
     };
   } catch (err: any) {

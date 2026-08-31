@@ -49,6 +49,7 @@ export const ProfileView: React.FC = () => {
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [upiId, setUpiId] = useState(currentUser?.upiId || '');
   const [bio, setBio] = useState(currentUser?.bio || '');
+  const [monthlyLimits, setMonthlyLimits] = useState<Record<string, number>>(currentUser?.monthlyLimits || {});
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,6 +66,7 @@ export const ProfileView: React.FC = () => {
       setPhone(currentUser.phone || '');
       setUpiId(currentUser.upiId || '');
       setBio(currentUser.bio || '');
+      setMonthlyLimits(currentUser.monthlyLimits || {});
     }
   }, [currentUser]);
 
@@ -110,7 +112,8 @@ export const ProfileView: React.FC = () => {
       city: city.trim(),
       phone: phone.trim(),
       upiId: upiId.trim(),
-      bio: bio.trim()
+      bio: bio.trim(),
+      monthlyLimits
     });
     if (ok) {
       setIsEditing(false);
@@ -655,6 +658,28 @@ export const ProfileView: React.FC = () => {
               />
             </div>
           </div>
+
+
+            {/* Monthly Spending Limits */}
+            <div className="sm:col-span-2 mt-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
+                Monthly Spending Limits (Per Category)
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {['Food', 'Transport', 'Education', 'Shopping', 'Entertainment', 'Hostel', 'Other'].map(cat => (
+                  <div key={cat} className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">{cat.substring(0, 3)}</span>
+                    <input
+                      type="number"
+                      placeholder="No limit"
+                      value={monthlyLimits[cat] || ''}
+                      onChange={(e) => setMonthlyLimits(prev => ({ ...prev, [cat]: Number(e.target.value) || 0 }))}
+                      className="w-full pl-12 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
             <button

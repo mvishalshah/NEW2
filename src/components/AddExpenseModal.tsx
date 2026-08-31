@@ -427,9 +427,9 @@ export const AddExpenseModal: React.FC = () => {
       setManualItems(extractedItems.map(item => ({
         id: item.id || `item_${Date.now()}_${Math.random()}`,
         name: item.name,
-        quantity: 1,
-        unitPrice: item.price,
-        totalPrice: item.price,
+        quantity: item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        totalPrice: item.totalPrice || item.price || 0,
         assignedUserIds: [currentUser?.id || '']
       })));
     }

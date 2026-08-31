@@ -161,9 +161,11 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onComplete, onCa
       const data = await res.json();
       if (data.success && data.result && data.result.items) {
         const parsedItems = data.result.items.map((item: any, idx: number) => ({
-          id: Date.now().toString() + idx,
+          id: item.id || Date.now().toString() + idx,
           name: item.name || '',
-          price: Number(item.unitPrice || item.price || item.totalPrice || 0)
+          quantity: item.quantity || 1,
+          unitPrice: Number(item.unitPrice || item.price || 0),
+          totalPrice: Number(item.totalPrice || item.price || 0)
         }));
         setItems(parsedItems);
         setStep('review');

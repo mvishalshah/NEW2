@@ -46,9 +46,69 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
 
   const [groupData, setGroupData] = useState<any | null>(null);
   const [debts, setDebts] = useState<DebtEdge[]>([]);
-  const [activeTab, setActiveTab] = useState<'expenses' | 'debts' | 'members' | 'activity'>('expenses');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'debts' | 'members' | 'activity' | 'chat' | 'settings'>('expenses');
+  const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const isAdmin = groupData?.ownerId === currentUser?.id || groupData?.members?.find((m: any) => m.userId === currentUser?.id)?.role === 'owner';
+  
+  const pendingMembers = groupData?.members?.filter((m: any) => m.status === 'pending') || [];
+  const activeMembersList = groupData?.members?.filter((m: any) => m.status !== 'pending') || [];
+
+
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatImage, setChatImage] = useState<string | null>(null);
+  
+  const [settingsForm, setSettingsForm] = useState({ name: '', description: '', imageUrl: '' });
+
+  const { fetchGroupChat, sendGroupMessage, updateGroup, approveMember, rejectMember } = useApp();
+  
+  useEffect(() => {
+    if (activeTab === 'chat' && groupId) {
+      const loadChat = async () => {
+        const msgs = await fetchGroupChat(groupId);
+        setChatMessages(msgs);
+      };
+      loadChat();
+      const interval = setInterval(loadChat, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, groupId]);
+
+  useEffect(() => {
+    if (groupData && activeTab === 'settings') {
+      setSettingsForm({
+        name: groupData.name || '',
+        description: groupData.description || '',
+        imageUrl: groupData.imageUrl || ''
+      });
+    }
+  }, [groupData, activeTab]);
+
+  const handleSendChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() && !chatImage) return;
+    const ok = await sendGroupMessage(groupId, chatInput.trim(), chatImage || undefined);
+    if (ok) {
+      setChatInput('');
+      setChatImage(null);
+      const msgs = await fetchGroupChat(groupId);
+      setChatMessages(msgs);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setChatImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   const fetchGroupDetails = async () => {
     setIsLoading(true);
@@ -274,7 +334,9 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
           { id: 'expenses', label: 'Expenses', icon: Receipt, count: groupData.expenses?.length },
           { id: 'debts', label: 'Simplified Debts', icon: HeartHandshake, count: debts.length },
           { id: 'members', label: 'Members', icon: Users, count: groupData.members?.length },
-          { id: 'activity', label: 'Social Feed', icon: Activity, count: groupData.activities?.length }
+          { id: 'activity', label: 'Social Feed', icon: Activity, count: groupData.activities?.length },
+          { id: 'chat', label: 'Group Chat', icon: MessageSquare },
+          { id: 'settings', label: 'Admin Settings', icon: Settings }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -379,6 +441,18 @@ export const GroupDetails: React.FC<GroupDetailsProps> = ({ groupId }) => {
                         </div>
                       </div>
 
+                      {exp.receiptUrl && (
+                        <button
+                          onClick={() => {
+                            setPreviewReceiptUrl(exp.receiptUrl);
+                            setPreviewTitle(exp.title);
+                          }}
+                          className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors"
+                          title="View Receipt"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        </button>
+                      )}
                       {/* Delete button if creator or payer */}
                       {(isPayer || exp.createdBy === currentUser?.id) && (
                         <button

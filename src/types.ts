@@ -18,6 +18,7 @@ export interface User {
   bio?: string;
   honestyScore?: number;
   createdAt: string;
+  monthlyLimits?: Record<string, number>;
 }
 
 export interface Group {
@@ -163,7 +164,8 @@ export interface AppNotification {
     | 'honesty_confirmed'
     | 'settlement_initiated'
     | 'settlement_confirmed'
-    | 'ocr_complete';
+    | 'ocr_complete'
+    | 'spending_limit_warning';
   title: string;
   message: string;
   read: boolean;
@@ -206,4 +208,14 @@ export interface UserFinancialSummary {
   monthSpending: number;
   categoryBreakdown: { category: string; amount: number; percentage: number }[];
   monthlyTrends: { month: string; amount: number }[];
+}
+
+export interface GroupMessage {
+  id: string;
+  groupId: string;
+  userId: string;
+  text: string;
+  imageUrl?: string;
+  createdAt: string;
+  user?: User;
 }

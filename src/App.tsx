@@ -20,6 +20,7 @@ import { OnboardingModal } from './components/OnboardingModal.js';
 import { AuthModal } from './components/AuthModal.js';
 import { AuthGateView } from './components/AuthGateView.js';
 import { AccountSwitcherModal } from './components/AccountSwitcherModal.js';
+import { FloatingCalculator } from './components/FloatingCalculator.js';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
@@ -113,6 +114,7 @@ const MainLayout: React.FC = () => {
       <PaymentReminderModal />
       <OnboardingModal />
       <AccountSwitcherModal />
+      <FloatingCalculator />
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={closeAuthModal}

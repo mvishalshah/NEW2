@@ -136,6 +136,34 @@ export default app;
   });
 
   // Groups: Get By ID with Full Details
+  
+  app.put('/api/groups/:id', (req, res) => {
+    const group = db.updateGroup(req.params.id, req.body);
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+    res.json(group);
+  });
+
+  app.post('/api/groups/:id/approve', (req, res) => {
+    const success = db.approveMember(req.params.id, req.body.userId);
+    res.json({ success });
+  });
+
+  app.post('/api/groups/:id/reject', (req, res) => {
+    const success = db.rejectMember(req.params.id, req.body.userId);
+    res.json({ success });
+  });
+
+  app.get('/api/groups/:id/chat', (req, res) => {
+    const messages = db.getGroupMessages(req.params.id);
+    res.json(messages);
+  });
+
+  app.post('/api/groups/:id/chat', (req, res) => {
+    const { userId, text, imageUrl } = req.body;
+    const msg = db.addGroupMessage({ groupId: req.params.id, userId, text, imageUrl });
+    res.json(msg);
+  });
+
   app.get('/api/groups/:id', (req, res) => {
     const group = db.getGroupById(req.params.id);
     if (!group) {

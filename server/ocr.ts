@@ -138,30 +138,38 @@ export async function parseReceiptWithGemini(
       }
     };
 
-    const promptText = `Analyze this receipt or image. Extract each product/item name and its exact numerical price. Output ONLY structured JSON containing an array of these items.`;
+    const promptText = `Analyze this receipt or invoice image. Extract the merchant name, date, subtotal, tax, discount, total, and every individual line item. For each item, extract the name, quantity, unit price, and total price. Output ONLY structured JSON matching the provided schema.`;
 
     let response: any;
     let modelUsed = 'gemini-3.7-flash';
 
-    const systemInstruction = "You are an OCR data extractor. Output ONLY JSON. Extract the product names and their prices from the image.";
+    const systemInstruction = "You are an advanced OCR data extractor. Output ONLY JSON. Extract merchant details, totals, and a detailed list of line items including quantity and unit prices.";
 
     const responseSchema = {
       type: Type.OBJECT,
       properties: {
+        merchantName: { type: Type.STRING, description: 'Name of the store or merchant' },
+        date: { type: Type.STRING, description: 'Date on the receipt (YYYY-MM-DD) if available' },
+        subtotal: { type: Type.NUMBER, description: 'Subtotal amount before tax' },
+        tax: { type: Type.NUMBER, description: 'Total tax amount' },
+        discount: { type: Type.NUMBER, description: 'Total discount amount' },
+        total: { type: Type.NUMBER, description: 'Final total amount' },
         items: {
           type: Type.ARRAY,
-          description: 'List of all extracted items and their prices',
+          description: 'List of all extracted items',
           items: {
             type: Type.OBJECT,
             properties: {
               name: { type: Type.STRING, description: 'Product or item name' },
-              price: { type: Type.NUMBER, description: 'Exact numerical price' }
+              quantity: { type: Type.NUMBER, description: 'Quantity purchased' },
+              unitPrice: { type: Type.NUMBER, description: 'Price per unit' },
+              totalPrice: { type: Type.NUMBER, description: 'Total price for this line item' }
             },
-            required: ['name', 'price']
+            required: ['name', 'quantity', 'unitPrice', 'totalPrice']
           }
         }
       },
-      required: ['items']
+      required: ['merchantName', 'date', 'subtotal', 'tax', 'discount', 'total', 'items']
     };
 
     try {

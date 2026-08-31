@@ -669,6 +669,57 @@ class DatabaseStore {
     return newGroup;
   }
 
+  
+  updateGroup(groupId: string, data: Partial<Group>): Group | null {
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return null;
+    if (data.name) group.name = data.name;
+    if (data.description !== undefined) group.description = data.description;
+    if (data.imageUrl !== undefined) group.imageUrl = data.imageUrl;
+    return group;
+  }
+
+  approveMember(groupId: string, userId: string): boolean {
+    const member = this.groupMembers.find(m => m.groupId === groupId && m.userId === userId);
+    if (member && member.status === 'pending') {
+      member.status = 'active';
+      const group = this.groups.find(g => g.id === groupId);
+      if (group) group.memberCount += 1;
+      return true;
+    }
+    return false;
+  }
+  
+  rejectMember(groupId: string, userId: string): boolean {
+    const index = this.groupMembers.findIndex(m => m.groupId === groupId && m.userId === userId);
+    if (index !== -1 && this.groupMembers[index].status === 'pending') {
+      this.groupMembers.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  getGroupMessages(groupId: string): any[] {
+    const msgs = this.chatMessages.filter(m => m.groupId === groupId);
+    return msgs.map(m => {
+      const user = this.getUser(m.userId);
+      return { ...m, user };
+    });
+  }
+
+  addGroupMessage(data: { groupId: string, userId: string, text: string, imageUrl?: string }): any {
+    const msg = {
+      id: 'msg_' + Date.now(),
+      groupId: data.groupId,
+      userId: data.userId,
+      text: data.text,
+      imageUrl: data.imageUrl,
+      createdAt: new Date().toISOString()
+    };
+    this.chatMessages.push(msg);
+    return { ...msg, user: this.getUser(data.userId) };
+  }
+
   joinGroupByCode(groupCode: string, userId: string): { success: boolean; message: string; group?: Group } {
     const cleanCode = groupCode.trim().toUpperCase();
     const group = this.groups.find((g) => g.groupCode.toUpperCase() === cleanCode);
@@ -683,17 +734,17 @@ class DatabaseStore {
     }
 
     if (existingMember && existingMember.status === 'pending') {
-      existingMember.status = 'active';
+      return { success: true, message: 'Your join request is still pending admin approval.', group };
     } else {
       this.groupMembers.push({
         id: `gm_${Date.now()}`,
         groupId: group.id,
         userId,
         role: 'member',
-        status: 'active',
+        status: 'pending',
         joinedAt: new Date().toISOString()
       });
-      group.memberCount += 1;
+      // Do not increment memberCount until approved
     }
 
     const user = this.getUser(userId);
@@ -895,6 +946,53 @@ class DatabaseStore {
         createdAt: new Date().toISOString(),
         user: payer ? { id: payer.id, name: payer.name, avatarUrl: payer.avatarUrl, username: payer.username } : undefined
       });
+
+      // --- CHECK MONTHLY SPENDING LIMIT ---
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      finalParticipants.forEach((p) => {
+        const u = this.getUser(p.userId);
+        if (u && u.monthlyLimits && u.monthlyLimits[data.category] > 0) {
+          const limit = u.monthlyLimits[data.category];
+          // Calculate existing spending for this month in this category
+          let currentSpending = 0;
+          this.expenses.forEach(exp => {
+            const expDate = new Date(exp.date);
+            if (exp.category === data.category && expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear) {
+              const pMatch = exp.participants.find(p => p.userId === u.id);
+              if (pMatch) currentSpending += pMatch.shareAmount;
+              else if (exp.paidBy === u.id) currentSpending += exp.amount;
+            }
+          });
+          
+          const totalNewSpending = currentSpending + p.shareAmount;
+          
+          if (totalNewSpending > limit) {
+            this.notifications.unshift({
+              id: `notif_limit_${Date.now()}_${u.id}`,
+              userId: u.id,
+              type: 'spending_limit_warning' as any,
+              title: 'Budget Exceeded 🚨',
+              message: `You have exceeded your monthly limit for ${data.category}. Spent: ₹${totalNewSpending} / Limit: ₹${limit}`,
+              read: false,
+              createdAt: new Date().toISOString()
+            });
+          } else if (totalNewSpending >= limit * 0.8) {
+            this.notifications.unshift({
+              id: `notif_limit_${Date.now()}_${u.id}`,
+              userId: u.id,
+              type: 'spending_limit_warning' as any,
+              title: 'Approaching Limit ⚠️',
+              message: `You have spent ₹${totalNewSpending} (80%+) of your ₹${limit} monthly limit for ${data.category}.`,
+              read: false,
+              createdAt: new Date().toISOString()
+            });
+          }
+        }
+      });
+      // ------------------------------------
 
       // Send notifications to other participants
       finalParticipants.forEach((p) => {

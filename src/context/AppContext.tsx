@@ -111,6 +111,13 @@ interface AppContextType {
   refreshAllData: () => Promise<void>;
   createGroup: (data: any) => Promise<Group | null>;
   joinGroupWithCode: (code: string) => Promise<boolean>;
+
+  updateGroup: (groupId: string, data: Partial<Group>) => Promise<boolean>;
+  approveMember: (groupId: string, userId: string) => Promise<boolean>;
+  rejectMember: (groupId: string, userId: string) => Promise<boolean>;
+  fetchGroupChat: (groupId: string) => Promise<any[]>;
+  sendGroupMessage: (groupId: string, text: string, imageUrl?: string) => Promise<boolean>;
+
   addExpense: (data: any) => Promise<Expense | null>;
   recordSettlement: (data: any) => Promise<boolean>;
   confirmSettlement: (settlementId: string) => Promise<boolean>;
@@ -787,6 +794,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newGroup;
   };
 
+  
+  const updateGroup = async (groupId: string, data: Partial<Group>) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        await refreshAllData();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const approveMember = async (groupId: string, userId: string) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (res.ok) {
+        await refreshAllData();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+  
+  const rejectMember = async (groupId: string, userId: string) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (res.ok) {
+        await refreshAllData();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const fetchGroupChat = async (groupId: string) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/chat`);
+      if (res.ok) {
+        return await res.json();
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
+
+  const sendGroupMessage = async (groupId: string, text: string, imageUrl?: string) => {
+    if (!currentUser) return false;
+    try {
+      const res = await fetch(`/api/groups/${groupId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, text, imageUrl })
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   const joinGroupWithCode = async (code: string): Promise<boolean> => {
     const cleaned = code.trim().toUpperCase();
 
@@ -794,6 +879,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured() && currentUser) {
       const sbResult = await joinGroupByCodeInSupabase(cleaned, currentUser);
       if (sbResult.success && sbResult.group) {
+        if (sbResult.message.includes('approval') || sbResult.message.includes('pending')) {
+          showToast(sbResult.message, 'info');
+          return true;
+        }
         setGroupsState((prev) => (prev.some((g) => g.id === sbResult.group!.id) ? prev : [sbResult.group!, ...prev]));
         showToast(sbResult.message, 'success');
         setActiveView('group-detail', sbResult.group.id);
@@ -878,8 +967,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
+    
     setExpenses((prev) => [newExpense, ...prev]);
     showToast(`Expense of ₹${newExpense.amount} added! 🧾`, 'success');
+
+    // --- CHECK MONTHLY SPENDING LIMIT ---
+    if (currentUser?.monthlyLimits) {
+      const cat = newExpense.category;
+      const limit = currentUser.monthlyLimits[cat];
+      if (limit > 0) {
+        // Find user's share in this expense
+        const userParticipant = newExpense.participants.find(p => p.userId === currentUser.id);
+        const newExpenseShare = userParticipant ? userParticipant.shareAmount : (newExpense.paidBy === currentUser.id ? newExpense.amount : 0);
+        
+        if (newExpenseShare > 0) {
+          // Calculate existing spending for this month in this category
+          const now = new Date();
+          const currentMonth = now.getMonth();
+          const currentYear = now.getFullYear();
+          
+          let currentSpending = 0;
+          expenses.forEach(exp => {
+            const expDate = new Date(exp.date);
+            if (exp.category === cat && expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear) {
+              const p = exp.participants.find(p => p.userId === currentUser.id);
+              if (p) currentSpending += p.shareAmount;
+              else if (exp.paidBy === currentUser.id) currentSpending += exp.amount;
+            }
+          });
+          
+          const totalNewSpending = currentSpending + newExpenseShare;
+          
+          if (totalNewSpending > limit) {
+            // Over limit
+            const notif = {
+              id: `notif_limit_${Date.now()}`,
+              userId: currentUser.id,
+              type: 'spending_limit_warning' as any,
+              title: 'Budget Exceeded 🚨',
+              message: `You have exceeded your monthly limit for ${cat}. Spent: ₹${totalNewSpending} / Limit: ₹${limit}`,
+              read: false,
+              createdAt: new Date().toISOString()
+            };
+            setNotifications(prev => [notif, ...prev]);
+            showToast(`Alert: ${cat} limit exceeded!`, 'error');
+          } else if (totalNewSpending >= limit * 0.8) {
+            // Approaching limit (80%)
+            const notif = {
+              id: `notif_limit_${Date.now()}`,
+              userId: currentUser.id,
+              type: 'spending_limit_warning' as any,
+              title: 'Approaching Limit ⚠️',
+              message: `You have spent ₹${totalNewSpending} (80%+) of your ₹${limit} monthly limit for ${cat}.`,
+              read: false,
+              createdAt: new Date().toISOString()
+            };
+            setNotifications(prev => [notif, ...prev]);
+            showToast(`Warning: Approaching ${cat} limit!`, 'info');
+          }
+        }
+      }
+    }
+    // ------------------------------------
+
 
     if (isSupabaseConfigured()) {
       await insertExpenseToSupabase(newExpense);
@@ -1303,6 +1453,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProfile,
         refreshAllData,
         createGroup,
+        updateGroup,
+        approveMember,
+        rejectMember,
+        fetchGroupChat,
+        sendGroupMessage,
         joinGroupWithCode,
         addExpense,
         recordSettlement,

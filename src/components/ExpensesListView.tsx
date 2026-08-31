@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ImageModal } from './ImageModal';
 import { useApp } from '../context/AppContext.js';
 import {
   Receipt,
@@ -45,6 +46,8 @@ export const ExpensesListView: React.FC = () => {
   });
 
   const totalFilteredAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
@@ -228,6 +231,18 @@ export const ExpensesListView: React.FC = () => {
                     </div>
                   </div>
 
+                  {exp.receiptUrl && (
+                    <button
+                      onClick={() => {
+                        setPreviewReceiptUrl(exp.receiptUrl);
+                        setPreviewTitle(exp.title);
+                      }}
+                      className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors"
+                      title="View Receipt"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    </button>
+                  )}
                   <button
                     onClick={() => openAddExpenseModal(exp.source === 'ocr' ? 'ocr' : 'manual', exp.groupId, exp)}
                     className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
@@ -255,6 +270,14 @@ export const ExpensesListView: React.FC = () => {
           })
         )}
       </div>
+      {previewReceiptUrl && (
+        <ImageModal
+          isOpen={true}
+          imageUrl={previewReceiptUrl}
+          title={previewTitle}
+          onClose={() => setPreviewReceiptUrl(null)}
+        />
+      )}
     </div>
   );
 };
