@@ -261,7 +261,7 @@ export async function insertGroupToSupabase(group: Group): Promise<boolean> {
         groupId: group.id,
         userId: group.ownerId,
         role: 'owner',
-        status: 'pending'
+        status: 'active'
       });
     }
 
@@ -349,6 +349,14 @@ export async function joinGroupByCodeInSupabase(
       return { success: false, message: 'Invalid group join code. Group not found.' };
     }
 
+    // Check if already a member
+    const { data: existingMember } = await supabase
+      .from('group_members')
+      .select('status')
+      .eq('group_id', groupData.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
     const group: Group = {
       id: groupData.id,
       name: groupData.name,
@@ -361,14 +369,22 @@ export async function joinGroupByCodeInSupabase(
       imageUrl: groupData.image_url,
       ownerId: groupData.owner_id,
       createdAt: groupData.created_at,
-      memberCount: (groupData.member_count || 1) + 1
+      memberCount: (groupData.member_count || 1) + (existingMember ? 0 : 1)
     };
+
+    if (existingMember) {
+      if (existingMember.status === 'active' || existingMember.status === 'owner') {
+        return { success: true, message: `Entering ${group.name}...`, group };
+      } else if (existingMember.status === 'pending') {
+        return { success: true, message: 'Your join request is still pending admin approval.', group };
+      }
+    }
 
     await insertGroupMemberToSupabase({
       groupId: group.id,
       userId: user.id,
       role: 'member',
-      status: 'active'
+      status: 'pending'
     });
 
     return {

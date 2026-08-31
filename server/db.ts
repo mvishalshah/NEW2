@@ -729,8 +729,8 @@ class DatabaseStore {
     }
 
     const existingMember = this.groupMembers.find((gm) => gm.groupId === group.id && gm.userId === userId);
-    if (existingMember && existingMember.status === 'active') {
-      return { success: false, message: `You are already a member of ${group.name}.`, group };
+    if (existingMember && (existingMember.status === 'active' || existingMember.status === 'owner')) {
+      return { success: true, message: `Entering ${group.name}...`, group };
     }
 
     if (existingMember && existingMember.status === 'pending') {

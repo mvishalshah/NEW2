@@ -875,6 +875,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const joinGroupWithCode = async (code: string): Promise<boolean> => {
     const cleaned = code.trim().toUpperCase();
 
+    const found = groupsState.find((g) => g.groupCode?.toUpperCase() === cleaned);
+    if (found) {
+      showToast(`Entering ${found.name}...`, 'success');
+      setActiveView('group-detail', found.id);
+      return true;
+    }
+
     // First try Supabase join if configured
     if (isSupabaseConfigured() && currentUser) {
       const sbResult = await joinGroupByCodeInSupabase(cleaned, currentUser);
@@ -890,12 +897,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    const found = groupsState.find((g) => g.groupCode?.toUpperCase() === cleaned);
-    if (found) {
-      showToast(`Joined ${found.name} successfully! 🚀`, 'success');
-      setActiveView('group-detail', found.id);
-      return true;
-    }
+
 
     try {
       const res = await fetch('/api/groups/join-code', {
